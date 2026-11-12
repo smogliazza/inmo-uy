@@ -83,13 +83,15 @@ el alcance de cada fase. Si algo de este archivo la contradice, avisá en el PR.
 
 ## Lecciones aprendidas y protecciones operativas (desde `v1.1.0.0`)
 
-1. **Versión de 4 segmentos vs. semver de Prisma CLI.** Prisma 4.16.2 interpreta `"version"` de
-   `package.json` con semver estricto de 3 segmentos y falla con `Invalid version` si tiene 4. **Regla**: la
-   versión de 4 segmentos va en `"appVersion"` (ej. `"1.1.0.0"`) y `"version"` lleva solo los primeros 3
-   (`"1.1.0"`), en los dos `package.json`. `backend/src/server.ts` lee `pkg.appVersion || pkg.version` para
-   `/api/health`.
-2. **Campos `Bytes` en Prisma 4.** Las columnas `Bytes` (`UploadedFile.data`) reciben un `Buffer` de Node.js,
-   no un `Uint8Array`.
+1. **Versión de 4 segmentos vs. semver.** npm (y Prisma 4, antes del upgrade) exige que `"version"` de
+   `package.json` tenga 3 segmentos. **Regla**: la versión de 4 segmentos va en `"appVersion"` (ej. `"1.1.0.0"`)
+   y `"version"` lleva solo los primeros 3 (`"1.1.0"`), en los dos `package.json`. `backend/src/server.ts` lee
+   `pkg.appVersion || pkg.version` para `/api/health`.
+2. **Prisma 7.** El cliente se crea siempre con `createPrismaClient()` de `backend/src/lib/prisma.ts` (adaptador
+   `pg`); nunca `new PrismaClient()` directo. La URL para Migrate y el comando de seed están en
+   `backend/prisma.config.ts`, no en `schema.prisma`. `.env` lo carga dotenv, no Prisma. Las columnas `Bytes`
+   (`UploadedFile.data`) se leen como `Uint8Array`: para escribir se pasa `new Uint8Array(buffer)` y para leer
+   se envuelve con `Buffer.from(...)`. `DATABASE_URL` sigue aceptando `connection_limit` y `schema`.
 3. **En Express, rutas estáticas antes que las de parámetro.** Subrutas como `POST /import` en `clients.ts` y
    `properties.ts` se registran antes que `/:id`; si no, `import` se toma como `:id`.
 4. **Typecheck de `backend/tests/smoke.ts`.** Pasarle un archivo a `tsc` ignora `tsconfig.json`. **Regla**:

@@ -13,7 +13,7 @@
  */
 import { execSync } from 'child_process';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from './lib/prisma';
 
 const BASELINE = '20260303200258_init_multi_tenant';
 const BACKEND_DIR = path.resolve(__dirname, '..');
@@ -24,7 +24,7 @@ function prisma(args: string) {
 }
 
 export async function runRelease() {
-    const db = new PrismaClient();
+    const db = createPrismaClient();
     try {
         const [state] = await db.$queryRaw<{ has_history: boolean; has_users: boolean }[]>`
             SELECT to_regclass('public."_prisma_migrations"') IS NOT NULL AS has_history,

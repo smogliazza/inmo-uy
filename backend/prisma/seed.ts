@@ -10,10 +10,11 @@
  * Usage:  SEED_PASSWORD='choose-a-strong-one' npx prisma db seed
  */
 import { PrismaClient, ClientType, ClientStatus, PropStatus, TransStatus, Role, Tier, CommStatus } from '@prisma/client';
+import { createPrismaClient } from '../src/lib/prisma';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 const DEMO_ORG_NAME = 'Demo Brokerage';
 const DEMO_DOMAIN = 'demo.example.com';

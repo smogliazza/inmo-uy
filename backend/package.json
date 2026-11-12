@@ -20,8 +20,8 @@
     "release": "ts-node --transpile-only src/release.ts",
     "release:compiled": "node dist/release.js"
   },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+  "engines": {
+    "node": ">=22.12"
   },
   "keywords": [],
   "author": "",
@@ -29,7 +29,8 @@
   "type": "commonjs",
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",
-    "@prisma/client": "^4.16.2",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "csv-parse": "^7.0.3",
@@ -39,7 +40,8 @@
     "google-auth-library": "^10.6.2",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.5.0",
-    "prisma": "^4.16.2",
+    "pg": "^8.23.1",
+    "prisma": "^7.10.1",
     "stripe": "^22.1.1"
   },
   "devDependencies": {

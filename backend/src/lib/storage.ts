@@ -164,7 +164,8 @@ export async function storeUploadedFile(params: {
             mimeType: params.mimeType,
             sizeBytes,
             r2Key: null,
-            data: params.buffer,
+            // Prisma 6+ types Bytes as Uint8Array<ArrayBuffer>; copy so the type (and memory) is exact.
+            data: new Uint8Array(params.buffer),
         },
     });
 

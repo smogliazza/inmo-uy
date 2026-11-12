@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from './lib/prisma';
 
 dotenv.config();
 
@@ -24,7 +24,7 @@ const app = express();
 // Behind Render/Vercel the client IP arrives in X-Forwarded-For. Without this,
 // every user shares the proxy's IP and one rate-limit bucket.
 app.set('trust proxy', process.env.TRUST_PROXY ? Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY : (process.env.NODE_ENV === 'production' ? 1 : false));
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const PORT = process.env.PORT || 4000;
 
 import clientRoutes from './routes/clients';

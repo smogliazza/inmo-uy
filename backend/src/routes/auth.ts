@@ -2,7 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../lib/prisma';
 import rateLimit from 'express-rate-limit';
 import { sendEmail, passwordResetEmail, welcomeEmail } from '../lib/email';
 import { authenticateToken, AuthRequest, setAuthCookie, clearAuthCookie, invalidateAccount } from '../middleware/authMiddleware';
@@ -31,7 +31,7 @@ const authLimiter = rateLimit({
 });
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
