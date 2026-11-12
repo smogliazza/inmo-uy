@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n/I18nContext";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useModules, routeAvailable } from "@/lib/modules";
 
 const SidebarIcon = ({ name }: { name: string }) => {
     const cls = "w-[18px] h-[18px] flex-shrink-0";
@@ -38,6 +39,9 @@ export default function Sidebar({ onClose }: SidebarProps) {
     const { t } = useI18n();
     const { user } = useAuth();
     const pathname = usePathname();
+    const { isOn } = useModules();
+    // Hide menu entries whose module is off
+    const available = (path: string) => routeAvailable(path, isOn);
 
     const getLocalizedName = (name: string | undefined) => {
         if (name === 'System Admin') return (t as any).roles?.ADMIN || name;
@@ -105,7 +109,10 @@ export default function Sidebar({ onClose }: SidebarProps) {
 
             {/* Navigation */}
             <nav className="flex-1 px-3 py-3 overflow-y-auto custom-scrollbar">
-                {navGroups.map((group) => (
+                {navGroups
+                    .map((group) => ({ ...group, items: group.items.filter((item) => available(item.path)) }))
+                    .filter((group) => group.items.length > 0)
+                    .map((group) => (
                     <div key={group.group} className="mb-5">
                         <div className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-foreground/30">
                             {group.group}
@@ -143,13 +150,15 @@ export default function Sidebar({ onClose }: SidebarProps) {
 
             {/* Footer */}
             <div className="p-3 border-t border-border flex flex-col gap-2.5">
-                <Link
-                    href="/upgrade"
-                    onClick={onClose}
-                    className="w-full py-2 bg-primary hover:opacity-90 text-background rounded-lg text-xs uppercase tracking-widest font-bold text-center transition-all shadow-sm"
-                >
-                    {(t as any).sidebar?.upgrade || 'Upgrade Plan'}
-                </Link>
+                {available('/upgrade') && (
+                    <Link
+                        href="/upgrade"
+                        onClick={onClose}
+                        className="w-full py-2 bg-primary hover:opacity-90 text-background rounded-lg text-xs uppercase tracking-widest font-bold text-center transition-all shadow-sm"
+                    >
+                        {(t as any).sidebar?.upgrade || 'Upgrade Plan'}
+                    </Link>
+                )}
                 <div className="flex items-center gap-2.5 px-1">
                     <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center text-primary font-bold text-sm ring-1 ring-primary/20 flex-shrink-0">
                         {user?.name?.charAt(0)?.toUpperCase() || 'A'}

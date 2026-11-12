@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { resetSettingsCache } from '@/lib/settings/useSettings';
+import { resetModulesCache } from '@/lib/modules';
 
 interface User {
     id: string;
@@ -66,6 +67,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 
     const login = (newToken: string, newUser: User) => {
+        resetModulesCache();
         resetSettingsCache(); // never show the previous person's brokerage policies or preferences
         setToken(newToken);
         setUser(newUser);
@@ -76,6 +78,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const logout = () => {
         resetSettingsCache();
+        resetModulesCache();
         setToken(null);
         setUser(null);
         localStorage.removeItem('token');

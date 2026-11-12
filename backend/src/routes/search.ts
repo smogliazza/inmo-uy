@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../server';
 import { authenticateToken, AuthRequest } from '../middleware/authMiddleware';
 import { clientScope, isManager } from '../lib/access';
+import { getOrgModules } from '../lib/modules';
 
 const router = Router();
 router.use(authenticateToken);
@@ -18,9 +19,11 @@ router.get('/', async (req: AuthRequest, res) => {
         const orgId = req.user.orgId;
         const mode  = 'insensitive' as const;
         const LIMIT = 5;
+        // Results from modules that are off are left out.
+        const modules = await getOrgModules(orgId);
 
         const [clients, properties, transactions] = await Promise.all([
-            prisma.client.findMany({
+            !modules.crmLeads.enabled ? [] : prisma.client.findMany({
                 where: {
                     ...clientScope(req.user),
                     AND: [{ OR: [
@@ -46,7 +49,7 @@ router.get('/', async (req: AuthRequest, res) => {
                 select: { id: true, address: true, city: true, state: true, price: true, status: true, beds: true, baths: true },
                 take: LIMIT,
             }),
-            prisma.transaction.findMany({
+            !modules.deals.enabled ? [] : prisma.transaction.findMany({
                 where: {
                     orgId,
                     ...(isManager(req.user) ? {} : { AND: [{ OR: [{ agentId: req.user.userId }, { coAgentId: req.user.userId }] }] }),

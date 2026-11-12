@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/i18n/I18nContext";
 import { useToast } from "@/components/ui/Toast";
 import { useExtra, fmt } from "@/lib/i18n/extra";
 import { parseCsv, mapPropertyCsvRows, downloadCsvTemplate } from "@/lib/csv";
-import { AI_ASSISTANT_ENABLED } from "@/lib/features";
+import { useAiAssistantEnabled } from "@/lib/modules";
 import { api, uploadFile } from "@/lib/api";
 import { useSettings } from "@/lib/settings/useSettings";
 
@@ -13,6 +13,7 @@ export default function ListingsPage() {
   const { t } = useI18n();
   const X = useExtra();
   const toast = useToast();
+  const AI_ON = useAiAssistantEnabled();
   // Brokerage rules (Settings > Properties) and this person's preferences
   const { policies, preferences } = useSettings();
   const lp = policies.properties;
@@ -487,7 +488,7 @@ export default function ListingsPage() {
                         {PX.goActive}
                       </button>
                     )}
-                    {AI_ASSISTANT_ENABLED && <a
+                    {AI_ON && <a
                       href={`/marketing?skill=listing_description&propertyId=${prop.id}`}
                       className="font-sans text-sm font-medium text-foreground/60 hover:text-foreground transition-colors duration-300"
                     >

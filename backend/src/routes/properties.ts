@@ -6,6 +6,7 @@ import { optDate, optNumber, isManager } from '../lib/access';
 import { OrgPolicies, missingListingField, descriptionTooLong } from '../lib/policies';
 import { createNotification } from './notifications';
 import { resolveLeadAssignee } from '../lib/routing';
+import { getOrgModules, sendModuleDisabled } from '../lib/modules';
 import { audit, diffFields } from '../lib/audit';
 
 const router = Router();
@@ -61,6 +62,7 @@ router.get('/public', async (req, res) => {
         }
     }
     if (!organization) return res.status(404).json({ error: 'Brokerage not found' });
+    if (!(await getOrgModules(organization.id)).publicSite.enabled) return sendModuleDisabled(res, 'publicSite');
 
     const properties = await prisma.property.findMany({
         where: { orgId: organization.id, status: { in: ['ACTIVE', 'COMING_SOON', 'IN_CONTRACT'] } },
@@ -85,10 +87,12 @@ router.get('/public', async (req, res) => {
 router.get('/public/:id', async (req, res) => {
     const property = await prisma.property.findFirst({
         where: { id: String(req.params.id), status: { in: ['ACTIVE', 'COMING_SOON', 'IN_CONTRACT'] } },
-        select: PUBLIC_SELECT,
+        select: { ...PUBLIC_SELECT, orgId: true },
     });
     if (!property) return res.status(404).json({ error: 'Listing not found' });
-    res.json(property);
+    if (!(await getOrgModules(property.orgId)).publicSite.enabled) return sendModuleDisabled(res, 'publicSite');
+    const { orgId: _orgId, ...listing } = property;
+    res.json(listing);
 });
 
 // POST /api/properties/public/:id/inquiry — website / open-house lead capture.
@@ -112,16 +116,20 @@ router.post('/public/:id/inquiry', inquiryLimiter, async (req, res) => {
         where: { id: String(req.params.id), status: { in: ['ACTIVE', 'COMING_SOON', 'IN_CONTRACT'] } },
     });
     if (!property) return res.status(404).json({ error: 'Listing not found' });
+    const modules = await getOrgModules(property.orgId);
+    if (!modules.publicSite.enabled) return sendModuleDisabled(res, 'publicSite');
 
-    const routingDecision = await resolveLeadAssignee({
-        orgId: property.orgId,
-        source,
-        city: property.city,
-        propertyType: property.propertyType,
-        price: property.price,
-        listingAgentId: property.agentId,
-    });
-    const assignedAgentId = routingDecision.agentId;
+    // With lead routing off, the inquiry goes straight to the listing agent.
+    const assignedAgentId = modules.leadRouting.enabled
+        ? (await resolveLeadAssignee({
+            orgId: property.orgId,
+            source,
+            city: property.city,
+            propertyType: property.propertyType,
+            price: property.price,
+            listingAgentId: property.agentId,
+        })).agentId
+        : property.agentId;
 
     const [firstName, ...rest] = name.split(/\s+/);
     const or: any[] = [];
@@ -152,7 +160,7 @@ router.post('/public/:id/inquiry', inquiryLimiter, async (req, res) => {
             authorId: targetAgentId, orgId: property.orgId,
         },
     });
-    await prisma.task.create({
+    if (modules.tasks.enabled) await prisma.task.create({
         data: {
             title: `Call back ${name} about ${property.address}`,
             priority: 'URGENT', dueDate: new Date(Date.now() + 15 * 60 * 1000),

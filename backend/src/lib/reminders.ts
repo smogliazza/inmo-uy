@@ -1,6 +1,7 @@
 import { prisma } from '../server';
 import { createNotification } from '../routes/notifications';
 import { normalizePreferences } from './policies';
+import { orgIdsWithModuleOff } from './modules';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -11,8 +12,11 @@ const HOUR = 60 * 60 * 1000;
  */
 export async function sendAppointmentReminders() {
     const now = new Date();
+    // Brokerages with the module off are skipped (their rows stay untouched for when it is turned back on).
+    const [appointmentsOff, tasksOff] = await Promise.all([orgIdsWithModuleOff('appointments'), orgIdsWithModuleOff('tasks')]);
     const due = await prisma.appointment.findMany({
         where: {
+            orgId: { notIn: appointmentsOff },
             reminderSent: false,
             status: { in: ['SCHEDULED', 'CONFIRMED', 'RESCHEDULED'] },
             date: { gt: now, lte: new Date(now.getTime() + 24 * HOUR) },
@@ -40,6 +44,7 @@ export async function sendAppointmentReminders() {
 
     const overdueTasks = await prisma.task.findMany({
         where: {
+            orgId: { notIn: tasksOff },
             overdueNotified: false,
             status: { in: ['PENDING', 'IN_PROGRESS'] },
             dueDate: { lt: now },

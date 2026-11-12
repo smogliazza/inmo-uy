@@ -10,8 +10,13 @@ on:
 
 jobs:
   backend-and-smoke:
-    name: Backend Typecheck, Migrations & Smoke Tests
+    name: Backend Typecheck, Migrations & Smoke Tests (modules ${{ matrix.modules }})
     runs-on: ubuntu-latest
+    # The smoke suite runs with every module on and with every optional module off (spec, section 5.3).
+    strategy:
+      fail-fast: false
+      matrix:
+        modules: [all-on, optional-off]
 
     services:
       postgres:
@@ -34,6 +39,8 @@ jobs:
       PORT: 4000
       NODE_ENV: development
       DISABLE_JOBS: "true"
+      SMOKE_MODULES: ${{ matrix.modules }}
+      MODULES_ALL: publicSite,publicMap,crmLeads,leadRouting,tasks,appointments,documents,rentals,deals,commissions,marketing,referrals,gifts,aiAssistant,billing,googleOAuth,migrator
 
     steps:
       - name: Checkout repository
@@ -54,6 +61,10 @@ jobs:
         working-directory: backend
         run: npm run typecheck
 
+      - name: Module resolution unit tests
+        working-directory: backend
+        run: npm run test:unit
+
       - name: Compile backend (production build)
         working-directory: backend
         run: npm run compile
@@ -65,6 +76,11 @@ jobs:
       - name: Start compiled API server & run smoke tests
         working-directory: backend
         run: |
+          if [ "$SMOKE_MODULES" = "all-on" ]; then
+            export MODULES_DEFAULT_ON="$MODULES_ALL" AI_ASSISTANT_ENABLED=true
+          else
+            export MODULES_DEFAULT_OFF="$MODULES_ALL"
+          fi
           npm start &
           SERVER_PID=$!
           echo "Waiting for API server on http://localhost:4000/api/health..."

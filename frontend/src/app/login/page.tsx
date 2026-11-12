@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useI18n } from "@/lib/i18n/I18nContext";
+import { useInstallationModules } from "@/lib/modules";
 import { useExtra } from "@/lib/i18n/extra";
 import Link from "next/link";
 
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const { t, language, setLanguage } = useI18n();
+  const installModules = useInstallationModules(); // the Google sign-in button shows only when the googleOAuth module is on
   const X = useExtra();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -172,7 +174,7 @@ export default function LoginPage() {
 
               {/* OAuth buttons — demo/prototype only */}
               <div className="space-y-3">
-                <button
+                {installModules?.googleOAuth && (<button
                   type="button"
                   disabled
                   title="OAuth integration — coming soon"
@@ -186,7 +188,7 @@ export default function LoginPage() {
                   </svg>
                   {t.login.continueGoogle}
                   <span className="text-[10px] text-foreground/30 ml-1">(Coming Soon)</span>
-                </button>
+                </button>)}
 
                 <button
                   type="button"

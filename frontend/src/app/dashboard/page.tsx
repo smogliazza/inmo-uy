@@ -17,12 +17,16 @@ import React from "react";
 import Link from "next/link";
 import { useExtra, fmt } from "@/lib/i18n/extra";
 import { useSettings } from "@/lib/settings/useSettings";
+import { useModules, ModuleKey } from "@/lib/modules";
 
 export default function DashboardPage() {
   const { t } = useI18n();
   const D = t.dashboard as any;
   const X = useExtra();
   const { preferences } = useSettings();
+  const { isOn } = useModules();
+  // Action items that belong to a module are hidden when that module is off
+  const ACTION_MODULE: Record<string, ModuleKey> = { TASK: "tasks", OFFER: "deals", FOLLOW_UP: "crmLeads", GIFT: "gifts" };
   const [now] = React.useState(() => Date.now());
 
   const [dashboardData, setDashboardData] = React.useState({
@@ -101,6 +105,8 @@ export default function DashboardPage() {
     document.body.removeChild(link);
   };
 
+  const actionItems = (dashboardData.actionItems || []).filter((item: any) => !ACTION_MODULE[item.type] || isOn(ACTION_MODULE[item.type]));
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out text-foreground">
       {/* Header Area */}
@@ -128,7 +134,7 @@ export default function DashboardPage() {
 
       {/* Today */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-surface border border-border rounded-xl p-5">
+        {isOn("appointments") && <div className="bg-surface border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground">📅 {X.dashboard.todaysAppointments}</h3>
             <Link href="/appointments" className="text-xs text-primary hover:underline">{X.dashboard.viewAll}</Link>
@@ -146,8 +152,8 @@ export default function DashboardPage() {
           ) : (
             <p className="text-sm text-foreground/40">{X.dashboard.noAppointments}</p>
           )}
-        </div>
-        <div className="bg-surface border border-border rounded-xl p-5">
+        </div>}
+        {isOn("tasks") && <div className="bg-surface border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground">⏰ {X.dashboard.overdueTasks}</h3>
             <Link href="/tasks" className="text-xs text-primary hover:underline">{X.dashboard.viewAll}</Link>
@@ -164,8 +170,8 @@ export default function DashboardPage() {
           ) : (
             <p className="text-sm text-foreground/40">{X.dashboard.noOverdue}</p>
           )}
-        </div>
-        <div className="bg-surface border border-border rounded-xl p-5">
+        </div>}
+        {isOn("crmLeads") && <div className="bg-surface border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground">📞 {X.dashboard.needsFollowUp}</h3>
             <span className="text-xs text-red-500 font-semibold">{dashboardData.hotLeads ? `${dashboardData.hotLeads} ${X.dashboard.hotLeads}` : ""}</span>
@@ -185,13 +191,13 @@ export default function DashboardPage() {
           ) : (
             <p className="text-sm text-foreground/40">{X.dashboard.allCaughtUp}</p>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* KPI Grid */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
         {/* YTD Commission - Dominant Feature */}
-        <div className="md:col-span-5 bg-surface border border-border rounded-xl p-6 hover:shadow-md transition-all duration-300 flex flex-col justify-between min-h-[200px] relative overflow-hidden">
+        {isOn("commissions") && <div className="md:col-span-5 bg-surface border border-border rounded-xl p-6 hover:shadow-md transition-all duration-300 flex flex-col justify-between min-h-[200px] relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-[80px] pointer-events-none" />
           <div className="flex justify-between items-start relative z-10">
             <h3 className="text-sm font-medium text-foreground/50">
@@ -214,10 +220,10 @@ export default function DashboardPage() {
               {t.dashboard.annualGoal}
             </p>
           </div>
-        </div>
+        </div>}
 
         {/* Secondary Cards */}
-        <div className="md:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className={`${isOn("commissions") ? "md:col-span-7" : "md:col-span-12"} grid grid-cols-1 sm:grid-cols-2 gap-4`}>
           <div className="bg-surface border border-border rounded-xl p-6 hover:shadow-md transition-all duration-300 flex flex-col justify-between min-h-[200px]">
             <h3 className="text-sm font-medium text-foreground/50">
               {t.dashboard.activeListings}
@@ -233,7 +239,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bg-surface border border-border rounded-xl p-6 hover:shadow-md transition-all duration-300 flex flex-col justify-between min-h-[200px]">
+          {isOn("crmLeads") && <div className="bg-surface border border-border rounded-xl p-6 hover:shadow-md transition-all duration-300 flex flex-col justify-between min-h-[200px]">
             <h3 className="text-sm font-medium text-foreground/50">
               {t.dashboard.newLeads}
             </h3>
@@ -246,9 +252,9 @@ export default function DashboardPage() {
                 {t.dashboard.liveData}
               </p>
             </div>
-          </div>
+          </div>}
 
-          <div className="bg-surface border border-border rounded-xl p-6 hover:shadow-md transition-all duration-300 sm:col-span-2 flex flex-col sm:flex-row justify-between items-start sm:items-end min-h-[90px]">
+          {isOn("deals") && <div className="bg-surface border border-border rounded-xl p-6 hover:shadow-md transition-all duration-300 sm:col-span-2 flex flex-col sm:flex-row justify-between items-start sm:items-end min-h-[90px]">
             <div>
               <h3 className="text-sm font-medium text-foreground/50">
                 {t.dashboard.pendingOffers}
@@ -260,14 +266,14 @@ export default function DashboardPage() {
             <p className="text-xs font-medium text-foreground/40 mt-3 sm:mt-0">
               {t.dashboard.liveData}
             </p>
-          </div>
+          </div>}
         </div>
       </div>
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Commission & Deal Timeline */}
-        <div className="flex flex-col bg-surface border border-border rounded-xl p-5">
+        {isOn("deals") && <div className="flex flex-col bg-surface border border-border rounded-xl p-5">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-base font-semibold text-foreground">
               {D.charts?.timeline}
@@ -294,10 +300,10 @@ export default function DashboardPage() {
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </div>}
 
         {/* Pipeline Funnel */}
-        <div className="flex flex-col bg-surface border border-border rounded-xl p-5">
+        {isOn("crmLeads") && <div className="flex flex-col bg-surface border border-border rounded-xl p-5">
           <h2 className="text-base font-semibold text-foreground mb-4">
             {D.charts?.funnel}
           </h2>
@@ -316,18 +322,18 @@ export default function DashboardPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* Action Items */}
       <div>
         <h2 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
           {t.dashboard.actionItems}
-          <span className="px-2 py-0.5 bg-primary/10 rounded-full text-primary text-xs font-bold">3</span>
+          <span className="px-2 py-0.5 bg-primary/10 rounded-full text-primary text-xs font-bold">{actionItems.length}</span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {dashboardData.actionItems && dashboardData.actionItems.length > 0 ? (
-            dashboardData.actionItems.map((item) => (
+          {actionItems.length > 0 ? (
+            actionItems.map((item: any) => (
               <div key={item.id} className="group bg-surface border border-border rounded-xl p-5 hover:shadow-md hover:border-primary/30 transition-all duration-300">
                 <div className="flex justify-between items-start mb-1.5">
                   <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">

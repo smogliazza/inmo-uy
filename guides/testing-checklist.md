@@ -77,4 +77,20 @@ happen; note anything that doesn't.
 - [ ] Marketing, Access Control and Integrations still show **Coming soon**. A manager or agent sees the company rules but cannot save them.
       *营销、访问控制、集成仍显示“即将推出”。经理和经纪人能看到公司规则，但不能保存。*
 
+## 10. Módulos (fork Uruguay)
+
+- [ ] **Ajustes > Módulos** (administrador de la inmobiliaria): aparecen los 17 módulos con descripción, estado
+  y de qué dependen. Un agente ve la lista pero no puede cambiar nada.
+- [ ] Apagar **Visitas y agenda**: desaparece "Citas" del menú y la tarjeta "Citas de hoy" del panel; entrar a
+  `/appointments` muestra "Esta sección no está disponible". Encenderlo de nuevo: vuelven las citas que había.
+- [ ] Apagar **Ofertas y operaciones de venta**: desaparecen Pipeline, Operaciones, Reportes y también Finanzas
+  (Comisiones depende de este módulo y lo indica en la lista).
+- [ ] Apagar **Sitio público**: la página pública de propiedades de la inmobiliaria da error y el formulario de
+  consulta no se puede enviar. Otra inmobiliaria no se ve afectada.
+- [ ] Apagar **Reparto de consultas**: desaparece "Asignación de Leads" en Ajustes; una consulta desde el sitio le
+  llega al agente de la propiedad.
+- [ ] "Usar valor de la plataforma" devuelve un módulo a su valor por defecto. Cada cambio queda en la auditoría.
+- [ ] Con **Regalos** y **Referidos** apagados, "Servicios" no aparece en el menú; con uno solo encendido, la
+  página muestra solo esa tarjeta.
+
 Report problems with: the page, what you clicked, what you expected, what happened, and a screenshot.

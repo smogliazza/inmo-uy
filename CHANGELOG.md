@@ -24,10 +24,21 @@
 > Desde el fork para Uruguay (`smogliazza/inmo-uy`) las entradas nuevas se escriben en español.
 
 #### Agregado (fork Uruguay)
+- **Módulos.** Cada inmobiliaria enciende solo lo que usa, en **Ajustes > Módulos**: sitio público, mapa, CRM
+  de interesados, reparto de consultas, tareas, visitas, documentos, alquileres, ofertas y operaciones,
+  comisiones, marketing, referidos, regalos, asistente IA, suscripción Stripe, ingreso con Google y migrador. Un
+  módulo apagado desaparece del menú, del panel principal y de la búsqueda; su página muestra "Esta sección no
+  está disponible", su API responde 404 `module_disabled` y sus recordatorios automáticos no corren. No se
+  borra nada: al encenderlo vuelve todo. Los cambios quedan en la auditoría.
 - Entorno local completo con un solo comando: `docker compose up` levanta la base (PostgreSQL 16), la API y el
   sitio web. Las contraseñas se toman de `.env` (copiar de `.env.example`); no hay valores fijos.
 
 #### Cambiado (fork Uruguay)
+- **Atención, instalaciones existentes:** con los valores por defecto nuevos quedan **apagados** ofertas y
+  operaciones, comisiones, marketing, referidos, regalos, suscripción Stripe e ingreso con Google. Para
+  mantener cómo funcionaba antes, definir `MODULES_DEFAULT_ON=deals,commissions,marketing,referrals,gifts`
+  (o encenderlos por inmobiliaria en Ajustes > Módulos). El asistente IA sigue dependiendo de
+  `AI_ASSISTANT_ENABLED`, igual que antes.
 - Prisma pasa de 4.16 a 7.10.1 (versión estable vigente). No cambia nada para los usuarios ni en la base de
   datos: no hay migraciones nuevas y las bases existentes siguen funcionando sin intervención. El backend
   necesita Node.js 22.12 o superior.
@@ -415,6 +426,8 @@
 | 前端<br>*Frontend* | `NEXT_PUBLIC_FEATURED_BROKERAGE_SLUG` | 可选：首页 “Browse Listings” 链接到哪家公司<br>*Optional: which company the home page “Browse Listings” links to* |
 | 后端<br>*Backend* | `SENTRY_DSN` | 可选：后端 Sentry 错误上报 DSN，未填时静默不启用<br>*Optional: backend Sentry DSN; silently disabled when empty* |
 | 前端<br>*Frontend* | `NEXT_PUBLIC_SENTRY_DSN` | 可选：前端 Sentry 错误上报 DSN，未填时静默不启用<br>*Optional: frontend Sentry DSN; silently disabled when empty* |
+| Backend | `MODULES_FORCE_OFF` | Fork Uruguay: módulos apagados para toda la instalación (claves separadas por coma; nadie los puede encender) |
+| Backend | `MODULES_DEFAULT_ON` / `MODULES_DEFAULT_OFF` | Fork Uruguay: valor por defecto de cada módulo para la instalación; cada inmobiliaria puede cambiarlo en Ajustes > Módulos |
 | 前端<br>*Frontend* | `NEXT_PUBLIC_CSP_ENFORCE` | 可选：设为 `true` 时前端 CSP 从仅报告切换为强制拦截，默认 `false`<br>*Optional: `true` switches the frontend CSP from report-only to enforcing; default `false`* |
 
 ## 待确认 / To confirm

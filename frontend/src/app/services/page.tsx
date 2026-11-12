@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useModules } from "@/lib/modules";
 import { useI18n } from "@/lib/i18n/I18nContext";
 import { useExtra } from "@/lib/i18n/extra";
 import { useToast } from "@/components/ui/Toast";
@@ -23,13 +24,17 @@ export default function ServicesPage() {
   const [gift, setGift] = useState({ clientId: "", item: "", amount: "" });
   const [ref, setRef] = useState({ refereeId: "", notes: "", feeAmount: "" });
   const [busy, setBusy] = useState(false);
+  // Each card belongs to its own module (gifts / referrals); the page shows when either is on
+  const { isOn } = useModules();
+  const giftsOn = isOn("gifts");
+  const referralsOn = isOn("referrals");
 
   const load = useCallback(() => {
-    api("/api/clients?limit=100").then((d) => setClients(d.data || [])).catch(() => {});
-    api("/api/settings/team").then(setTeam).catch(() => {});
-    api("/api/gifts").then(setGifts).catch(() => {});
-    api("/api/referrals").then(setReferrals).catch(() => {});
-  }, []);
+    if (giftsOn) api("/api/clients?limit=100").then((d) => setClients(d.data || [])).catch(() => {});
+    if (referralsOn) api("/api/settings/team").then(setTeam).catch(() => {});
+    if (giftsOn) api("/api/gifts").then(setGifts).catch(() => {});
+    if (referralsOn) api("/api/referrals").then(setReferrals).catch(() => {});
+  }, [giftsOn, referralsOn]);
   useEffect(load, [load]);
 
   const orderGift = async (e: React.FormEvent) => {
@@ -82,7 +87,7 @@ export default function ServicesPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Client gifts */}
-        <div className="bg-background border border-border rounded-xl p-6 space-y-5">
+        {giftsOn && <div className="bg-background border border-border rounded-xl p-6 space-y-5">
           <div>
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2">🍾 {t.services.loyaltyTitle}</h2>
             <p className="text-sm text-foreground/50 mt-1">{t.services.loyaltyDesc}</p>
@@ -121,10 +126,10 @@ export default function ServicesPage() {
               </ul>
             )}
           </div>
-        </div>
+        </div>}
 
         {/* Colleague referrals */}
-        <div className="bg-background border border-border rounded-xl p-6 space-y-5">
+        {referralsOn && <div className="bg-background border border-border rounded-xl p-6 space-y-5">
           <div>
             <h2 className="text-base font-semibold text-foreground">🤝 {X.services.myReferrals}</h2>
             <p className="text-sm text-foreground/50 mt-1">{t.services.directoryTitle}</p>
@@ -161,7 +166,7 @@ export default function ServicesPage() {
               ))}
             </ul>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );
