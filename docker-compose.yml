@@ -33,6 +33,9 @@ services:
       FRONTEND_URL: http://localhost:${DEV_WEB_PORT:-3000}
       APP_URL: http://localhost:${DEV_WEB_PORT:-3000}
       DISABLE_JOBS: ${DISABLE_JOBS:-false}
+      MODULES_FORCE_OFF: ${MODULES_FORCE_OFF:-}
+      MODULES_DEFAULT_ON: ${MODULES_DEFAULT_ON:-}
+      MODULES_DEFAULT_OFF: ${MODULES_DEFAULT_OFF:-}
     ports:
       - "127.0.0.1:${DEV_API_PORT:-4000}:4000"
     volumes:

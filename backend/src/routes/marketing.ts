@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../server';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { SKILLS, runSkill, aiConfigured, aiEnabled, tierAllows, AiUnavailableError } from '../lib/ai';
+import { isModuleEnabled } from '../lib/modules';
 import { clientScope } from '../lib/access';
 
 const router = Router();
@@ -113,7 +114,8 @@ router.post('/generate', async (req: AuthRequest, res) => {
             });
         }
 
-        if (aiConfigured()) {
+        // Without the AI module the built-in templates are used, as when no API key is set.
+        if (aiConfigured() && await isModuleEnabled(req.user!.orgId, 'aiAssistant')) {
             const skillId = type === 'SOCIAL' ? 'social_post' : type === 'EMAIL' ? 'listing_email' : 'listing_description';
             const skill = SKILLS.find(s => s.id === skillId)!;
             const realProperty = typeof propertyId === 'string' && propertyId && propertyId !== 'mock-id' ? propertyId : undefined;

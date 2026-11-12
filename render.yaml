@@ -31,6 +31,13 @@ services:
       # --- Google OAuth (optional) ---
       - key: GOOGLE_CLIENT_ID
         sync: false
+      # --- Modules (comma-separated keys, see backend/src/lib/modules.ts) ---
+      - key: MODULES_FORCE_OFF
+        sync: false
+      - key: MODULES_DEFAULT_ON
+        sync: false
+      - key: MODULES_DEFAULT_OFF
+        sync: false
       # --- AI assistant (in development, off) ---
       - key: AI_ASSISTANT_ENABLED
         value: "false"

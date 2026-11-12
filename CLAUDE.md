@@ -73,9 +73,14 @@ el alcance de cada fase. Si algo de este archivo la contradice, avisá en el PR.
 - Las peticiones del frontend pasan todas por `frontend/src/lib/api.ts`; las fechas de inputs se convierten
   con `dateInputToISO`. Los textos nuevos de interfaz van en `frontend/src/lib/i18n/extra.ts`, completando
   los cuatro idiomas (en, zh-CN, zh-TW, es).
-- Interruptores de funcionalidades: hoy `frontend/src/lib/features.ts` + variables de entorno del backend.
-  El asistente IA está apagado a propósito. Desde la fase F1 todo esto pasa al sistema de módulos
-  (`backend/src/lib/modules.ts`), que mapea los flags existentes.
+- **Módulos** (`backend/src/lib/modules.ts`, espejo en `frontend/src/lib/modules.ts`): cada funcionalidad
+  opcional pertenece a un módulo. En el backend, montar `requireModule('clave')` en `server.ts` por router (no
+  ruta por ruta); los jobs excluyen las organizaciones con el módulo apagado (`orgIdsWithModuleOff`); los
+  endpoints públicos lo chequean con `getOrgModules(orgId)`. En el frontend, `useModules().isOn(clave)` para
+  widgets y `ROUTE_MODULES` para rutas del panel (menú y 404). Módulo nuevo = entrada en los dos registros +
+  textos en `extra.ts` (`modules.names` / `modules.descs`) + pruebas en las dos corridas de smoke
+  (`SMOKE_MODULES=all-on` y `optional-off`). El asistente IA además exige `AI_ASSISTANT_ENABLED=true` /
+  `NEXT_PUBLIC_AI_ASSISTANT_ENABLED=true` (flags heredados).
 - Priorizar lo que resuelve problemas concretos de inmobiliarias y agentes, sin agregar peso innecesario.
 - El repo es **público** y su historial no se puede borrar de verdad: nunca commitear secretos, cadenas de
   conexión ni contraseñas, ni documentos (Word u otros binarios) que los contengan. Los pendientes que

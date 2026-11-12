@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation';
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useModules, routeAvailable } from '@/lib/modules';
+import ModuleNotAvailable from '@/components/modules/ModuleNotAvailable';
 
 const PUBLIC_ROUTES = [
     '/login', '/signup', '/forgot-password', '/reset-password',
@@ -14,7 +16,10 @@ const PUBLIC_ROUTES = [
 export default function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const { isLoading } = useAuth();
+    const { isOn, loaded: modulesLoaded } = useModules();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    // A panel page whose module is off shows a 404 (only once the module list has loaded).
+    const moduleOff = modulesLoaded && !routeAvailable(pathname, isOn);
 
     // "/" is the public marketing landing page
     const isAuthRoute = pathname === '/' || PUBLIC_ROUTES.some(r =>
@@ -79,7 +84,7 @@ export default function AuthLayoutWrapper({ children }: { children: React.ReactN
             <div className="flex-1 flex flex-col min-w-0 bg-background relative z-0 overflow-hidden">
                 <Header onMenuToggle={() => setSidebarOpen(v => !v)} />
                 <main className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
-                    {children}
+                    {moduleOff ? <ModuleNotAvailable /> : children}
                 </main>
             </div>
         </div>

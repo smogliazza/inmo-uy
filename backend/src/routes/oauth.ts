@@ -5,6 +5,7 @@ import { createPrismaClient } from '../lib/prisma';
 import { orgSlug } from '../lib/slug';
 import { OAuth2Client } from 'google-auth-library';
 import { setAuthCookie } from '../middleware/authMiddleware';
+import { installationModuleEnabled, isModuleEnabled, sendModuleDisabled } from '../lib/modules';
 
 const router = express.Router();
 const prisma = createPrismaClient();
@@ -39,6 +40,8 @@ const generateToken = (user: any) => {
 // POST /api/oauth/google
 router.post('/google', async (req, res) => {
     try {
+        // No brokerage is known yet: the installation-level setting decides first.
+        if (!installationModuleEnabled('googleOAuth')) return sendModuleDisabled(res, 'googleOAuth');
         const { idToken } = req.body;
 
         if (!idToken) {
@@ -91,7 +94,8 @@ router.post('/google', async (req, res) => {
                 }
             });
         } else if (user.googleId && user.googleId === googleId) {
-            // Existing account with matching googleId — allow login
+            // Existing account with matching googleId — allow login, unless its brokerage turned Google sign-in off
+            if (!(await isModuleEnabled(user.orgId, 'googleOAuth'))) return sendModuleDisabled(res, 'googleOAuth');
         } else {
             // Account exists but googleId doesn't match or isn't linked.
             // Reject to prevent account takeover. Linking must be done

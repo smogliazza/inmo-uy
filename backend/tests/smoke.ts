@@ -73,7 +73,92 @@ async function uploadFile(token: string, bytes: Buffer, mime: string, name: stri
     return { status: res.status, body: await res.json().catch(() => null) as any };
 }
 
+
+// ─── Module system ────────────────────────────────────────────────────────────
+// CI runs this suite twice: SMOKE_MODULES=all-on (server with MODULES_DEFAULT_ON = every module) and
+// SMOKE_MODULES=optional-off (server with MODULES_DEFAULT_OFF = every module).
+const SMOKE_MODULES = process.env.SMOKE_MODULES || 'all-on';
+
+// One list route per gated router, with the module that owns it
+const GATED_ROUTES: [string, string][] = [
+    ['/api/clients', 'crmLeads'], ['/api/transactions', 'deals'], ['/api/offers', 'deals'],
+    ['/api/finance/metrics', 'commissions'], ['/api/documents', 'documents'], ['/api/appointments', 'appointments'],
+    ['/api/tasks', 'tasks'], ['/api/marketing-tasks', 'marketing'], ['/api/marketing/skills', 'aiAssistant'],
+    ['/api/referrals', 'referrals'], ['/api/gifts', 'gifts'], ['/api/settings/lead-routing', 'leadRouting'],
+    ['/api/payments/portal', 'billing'],
+];
+
+function assertModuleDisabled(r: { status: number; body: any }, key: string, what: string) {
+    assert.equal(r.status, 404, `${what}: expected 404, got ${r.status} ${JSON.stringify(r.body)}`);
+    assert.equal(r.body?.error, 'module_disabled', what);
+    assert.equal(r.body?.module, key, what);
+}
+
+const moduleMap = async (token: string) => {
+    const r = await call('GET', '/api/settings/modules', token);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    return Object.fromEntries((r.body.modules as any[]).map(m => [m.key, m])) as Record<string, any>;
+};
+const setModules = (token: string, modules: Record<string, boolean | null>) => call('PUT', '/api/settings/modules', token, { modules });
+
+/** Every optional module off: the core (listings, dashboard, settings) still works and every gated API answers 404. */
+async function optionalOffSuite() {
+    console.log(`Smoke test (all optional modules OFF) against ${API}`);
+    const a = await register('offalpha');
+    const b = await register('offbravo');
+
+    await step('modules: every module is off for a new brokerage', async () => {
+        const m = await moduleMap(a);
+        assert.equal(Object.keys(m).length, 17);
+        for (const [key, state] of Object.entries(m)) assert.equal(state.enabled, false, key);
+        const inst = await call('GET', '/api/modules/installation');
+        assert.equal(inst.status, 200);
+        assert.ok(Object.values(inst.body.modules).every(v => v === false), 'installation view: all off');
+    });
+
+    await step('core keeps working: listings, dashboard, search, settings', async () => {
+        const p = await call('POST', '/api/properties', a, { address: '9 Core St', city: 'Salto', state: 'Salto', zip: '50000', price: 100000, beds: 1, baths: 1 });
+        assert.equal(p.status, 201, JSON.stringify(p.body));
+        assert.equal((await call('GET', '/api/properties', a)).status, 200);
+        assert.equal((await call('GET', '/api/dashboard', a)).status, 200);
+        const sr = await call('GET', '/api/search?q=core', a);
+        assert.equal(sr.status, 200);
+        assert.deepEqual(sr.body.clients, []);
+        assert.deepEqual(sr.body.transactions, []);
+        assert.equal(sr.body.properties.length, 1);
+        assert.equal((await call('GET', '/api/settings/policies', a)).status, 200);
+    });
+
+    await step('every gated API answers 404 module_disabled', async () => {
+        for (const [path, key] of GATED_ROUTES) assertModuleDisabled(await call('GET', path, a), key, path);
+        const org = await call('GET', '/api/settings/organization', a);
+        assertModuleDisabled(await call('GET', `/api/properties/public?b=${org.body.slug}`), 'publicSite', 'public listings');
+        assertModuleDisabled(await call('POST', '/api/oauth/google', undefined, { idToken: 'x' }), 'googleOAuth', 'google sign-in');
+        // Without AI_ASSISTANT_ENABLED=true the assistant is forced off: no brokerage can turn it on
+        const ai = (await moduleMap(a)).aiAssistant;
+        assert.equal(ai.source, 'forced_off');
+        assert.equal(ai.canEdit, false);
+        assert.equal((await setModules(a, { aiAssistant: true })).status, 400);
+    });
+
+    await step('turning a module on applies to that brokerage only', async () => {
+        const r = await setModules(a, { appointments: true });
+        assert.equal(r.status, 200, JSON.stringify(r.body));
+        assert.equal((await call('GET', '/api/appointments', a)).status, 200);
+        assertModuleDisabled(await call('GET', '/api/appointments', b), 'appointments', 'other brokerage');
+        // commissions needs deals: on its own it stays off and says why
+        const c = await setModules(a, { commissions: true });
+        const com = (c.body.modules as any[]).find(m => m.key === 'commissions');
+        assert.equal(com.enabled, false);
+        assert.deepEqual(com.blockedBy, ['deals']);
+        assertModuleDisabled(await call('GET', '/api/finance/metrics', a), 'commissions', 'commissions without deals');
+    });
+
+    console.log(`\nAll ${passed} smoke checks passed (optional modules off).`);
+}
+
 async function main() {
+    if (SMOKE_MODULES === 'optional-off') return optionalOffSuite();
     console.log(`Smoke test against ${API}`);
 
     await step('health check', async () => {
@@ -1071,6 +1156,78 @@ async function main() {
         assert.equal((await call('PATCH', '/api/settings/policies', owner, { finance: { fiscalYearStartMonth: now.getMonth() + 1 } })).status, 200);
         const fy = await call('GET', '/api/finance/metrics', agent.token);
         assert.equal(fy.body.ytdGross, 3000, 'only commissions paid since the fiscal year start are counted');
+    });
+
+    await step('module system: list, permissions, per-brokerage override, dependencies, isolation, audit', async () => {
+        const owner = a;
+        const agent = await joinOrg(owner, 'modagent', 'AGENT');
+        const m = await moduleMap(owner);
+        assert.equal(Object.keys(m).length, 17);
+        assert.equal(m.appointments.enabled, true);
+        assert.ok(Object.values(m).every((x: any) => x.enabled), 'all-on run: every module is on (AI via AI_ASSISTANT_ENABLED=true)');
+        assert.equal(m.migrator.canEdit, false, 'superadminOnly: a firm admin cannot change it');
+
+        // Permissions and validation
+        const ma = await moduleMap(agent.token);
+        assert.ok(Object.values(ma).every((x: any) => x.canEdit === false), 'agents read but cannot edit');
+        assert.equal((await setModules(agent.token, { appointments: false })).status, 403);
+        assert.equal((await setModules(owner, { nope: true } as any)).status, 400);
+        assert.equal((await call('PUT', '/api/settings/modules', owner, { modules: { tasks: 'yes' } })).status, 400);
+        assert.equal((await setModules(owner, { migrator: true })).status, 403, 'superadminOnly');
+
+        // Off for brokerage A only
+        const off = await setModules(owner, { appointments: false, tasks: false });
+        assert.equal(off.status, 200, JSON.stringify(off.body));
+        assertModuleDisabled(await call('GET', '/api/appointments', owner), 'appointments', 'appointments off');
+        assertModuleDisabled(await call('GET', '/api/appointments', agent.token), 'appointments', 'same brokerage, other user');
+        assertModuleDisabled(await call('GET', '/api/tasks', owner), 'tasks', 'tasks off');
+        assert.equal((await call('GET', '/api/appointments', b)).status, 200, 'the other brokerage is not affected');
+        assert.equal((await call('GET', '/api/tasks', b)).status, 200);
+
+        // Saving policies must not wipe the module overrides stored in the same JSON
+        assert.equal((await call('PATCH', '/api/settings/policies', owner, { documents: { maxFileSizeMb: 19 } })).status, 200);
+        assert.equal((await moduleMap(owner)).appointments.enabled, false, 'policies PATCH keeps modules');
+
+        // Dependencies: deals off turns commissions off; search leaves deals out
+        const d = await setModules(owner, { deals: false });
+        const dm = Object.fromEntries((d.body.modules as any[]).map(x => [x.key, x]));
+        assert.equal(dm.commissions.enabled, false);
+        assert.deepEqual(dm.commissions.blockedBy, ['deals']);
+        assertModuleDisabled(await call('GET', '/api/finance/metrics', owner), 'commissions', 'commissions blocked by deals');
+        assertModuleDisabled(await call('GET', '/api/offers', owner), 'deals', 'offers');
+        const sr = await call('GET', '/api/search?q=test', owner);
+        assert.equal(sr.status, 200);
+        assert.deepEqual(sr.body.transactions, []);
+
+        // Lead routing and the public site (a fresh, active listing: earlier steps close the first one)
+        const pub = await call('POST', '/api/properties', owner, { address: '7 Public St', city: 'Salto', state: 'Salto', zip: '50000', price: 120000, beds: 2, baths: 1, status: 'ACTIVE' });
+        assert.equal(pub.status, 201, JSON.stringify(pub.body));
+        const pubId = pub.body.id as string;
+        assert.equal((await call('GET', `/api/properties/public/${pubId}`)).status, 200, 'public while the module is on');
+        assert.equal((await setModules(owner, { leadRouting: false, publicSite: false })).status, 200);
+        assertModuleDisabled(await call('GET', '/api/settings/lead-routing', owner), 'leadRouting', 'lead routing');
+        const org = await call('GET', '/api/settings/organization', owner);
+        assertModuleDisabled(await call('GET', `/api/properties/public?b=${org.body.slug}`), 'publicSite', 'public listings');
+        assertModuleDisabled(await call('GET', `/api/properties/public/${pubId}`), 'publicSite', 'public listing page');
+        assertModuleDisabled(await call('POST', `/api/properties/public/${pubId}/inquiry`, undefined, { name: 'X', email: 'x@example.com' }), 'publicSite', 'inquiry');
+
+        // Audit trail
+        const log = await call('GET', '/api/settings/organization/audit-log', owner);
+        assert.ok(JSON.stringify(log.body).includes('UPDATE_ORG_MODULES'), 'module changes are audited');
+
+        // superadminOnly: a SUPERADMIN can change the importer
+        const sa = await joinOrg(owner, 'modsuper', 'MANAGER');
+        await db().user.update({ where: { id: sa.id }, data: { role: 'SUPERADMIN' } });
+        const mig = await setModules(sa.token, { migrator: true });
+        assert.equal(mig.status, 200, JSON.stringify(mig.body));
+
+        // Back to the installation defaults (null removes the override)
+        const reset = await setModules(owner, { appointments: null, tasks: null, deals: null, leadRouting: null, publicSite: null });
+        assert.equal(reset.status, 200);
+        assert.equal((await call('GET', '/api/appointments', owner)).status, 200);
+        assert.equal((await call('GET', '/api/finance/metrics', owner)).status, 200);
+        assert.equal((await call('GET', `/api/properties/public/${pubId}`)).status, 200);
+        assert.equal((await setModules(sa.token, { migrator: null })).status, 200);
     });
 
     console.log(`\nAll ${passed} smoke checks passed.`);

@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/i18n/I18nContext";
 import { useAuth } from "@/lib/auth/AuthContext";
 import AiAssistantPanel from "@/components/ai/AiAssistantPanel";
 import { aiLanguage, useExtra } from "@/lib/i18n/extra";
-import { AI_ASSISTANT_ENABLED } from "@/lib/features";
+import { useAiAssistantEnabled } from "@/lib/modules";
 
 interface MarketingTask {
   id: string;
@@ -18,6 +18,7 @@ interface MarketingTask {
 export default function MarketingPage() {
   const { t, language } = useI18n();
   const X = useExtra();
+  const AI_ON = useAiAssistantEnabled();
 
   const [audience, setAudience] = useState("Luxury & Elegant");
   const [features, setFeatures] = useState("");
@@ -159,7 +160,7 @@ export default function MarketingPage() {
               Copilot
             </span>{" "}
             {t.marketing.copilot}
-            {!AI_ASSISTANT_ENABLED && (
+            {!AI_ON && (
               <span className="text-xs font-sans font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/30">{X.ai.inDevelopment}</span>
             )}
           </h2>
@@ -277,7 +278,7 @@ export default function MarketingPage() {
           <div className="pt-8 mt-auto">
             <button
               onClick={handleGenerate}
-              disabled={generating || !AI_ASSISTANT_ENABLED}
+              disabled={generating || !AI_ON}
               className="w-full py-4 bg-primary text-background rounded-none text-base uppercase tracking-widest font-medium transition-colors hover:bg-primary-hover flex items-center justify-center gap-3 disabled:opacity-50 group"
             >
               {generating ? (

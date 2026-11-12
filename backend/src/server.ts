@@ -52,6 +52,8 @@ import searchRoutes from './routes/search';
 import uploadsRoutes from './routes/uploads';
 
 import { authenticateToken, AuthRequest } from './middleware/authMiddleware';
+import { requireModule, moduleForcedOff, sendModuleDisabled } from './lib/modules';
+import modulesRoutes from './routes/modules';
 import { startReminderLoop } from './lib/reminders';
 import { runRelease } from './release';
 import { captureBackendException } from './lib/sentry';
@@ -87,29 +89,38 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/oauth', oauthRoutes);
+app.use('/api/oauth', oauthRoutes); // googleOAuth is checked inside (no user yet)
+app.use('/api/modules', modulesRoutes);
 
 // Protected Routes
-app.use('/api/clients', authenticateToken, clientRoutes);
+// Each optional module's router is gated with requireModule (404 module_disabled when off).
+app.use('/api/clients', authenticateToken, requireModule('crmLeads'), clientRoutes);
 app.use('/api/properties', propertyRoutes); // Public /public route + self-managed auth via router.use(authenticateToken)
-app.use('/api/transactions', authenticateToken, transactionRoutes);
+app.use('/api/transactions', authenticateToken, requireModule('deals'), transactionRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
-app.use('/api/marketing', authenticateToken, marketingRoutes);
-app.use('/api/finance', authenticateToken, financeRoutes);
+// The AI assistant panel (CRM, listings) lives under /api/marketing but belongs to the aiAssistant module.
+const AI_PATHS = new Set(['/skills', '/assist']);
+app.use('/api/marketing', authenticateToken, (req, res, next) =>
+    requireModule(AI_PATHS.has(req.path) ? 'aiAssistant' : 'marketing')(req as AuthRequest, res, next), marketingRoutes);
+app.use('/api/finance', authenticateToken, requireModule('commissions'), financeRoutes);
 app.use('/api/settings', authenticateToken, settingsRoutes);
 app.use('/api/settings/users', authenticateToken, importExportRoutes);
-app.use('/api/offers', authenticateToken, offersRoutes);
-app.use('/api/documents', authenticateToken, documentsRoutes);
-app.use('/api/appointments', authenticateToken, appointmentsRoutes);
+app.use('/api/offers', authenticateToken, requireModule('deals'), offersRoutes);
+app.use('/api/documents', authenticateToken, requireModule('documents'), documentsRoutes);
+app.use('/api/appointments', authenticateToken, requireModule('appointments'), appointmentsRoutes);
 app.use('/api/media', authenticateToken, mediaRoutes);
-app.use('/api/marketing-tasks', authenticateToken, marketingTasksRoutes);
-app.use('/api/referrals', authenticateToken, referralsRoutes);
-app.use('/api/gifts', authenticateToken, giftsRoutes);
+app.use('/api/marketing-tasks', authenticateToken, requireModule('marketing'), marketingTasksRoutes);
+app.use('/api/referrals', authenticateToken, requireModule('referrals'), referralsRoutes);
+app.use('/api/gifts', authenticateToken, requireModule('gifts'), giftsRoutes);
 app.use('/api/integrations', authenticateToken, integrationsRoutes);
-app.use('/api/tasks',         tasksRoutes);
+app.use('/api/tasks',         authenticateToken, requireModule('tasks'), tasksRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/search',        searchRoutes);
-app.use('/api/payments',      paymentRoutes);
+// Stripe's webhook has no user: it is refused only when billing is forced off for the installation.
+app.use('/api/payments', (req, res, next) => {
+    if (req.path.startsWith('/webhook')) return moduleForcedOff('billing') ? sendModuleDisabled(res, 'billing') : next();
+    authenticateToken(req as AuthRequest, res, () => requireModule('billing')(req as AuthRequest, res, next));
+}, paymentRoutes);
 app.use('/api/uploads',       uploadsRoutes);
 
 // Basic Health Check Route

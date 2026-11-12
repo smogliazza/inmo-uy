@@ -8,6 +8,7 @@ import { audit, diffFields } from '../lib/audit';
 import { resolveLeadAssignee } from '../lib/routing';
 import { normalizeNotificationPrefs } from './notifications';
 import { normalizeOrgPolicies, applyOrgPoliciesPatch, normalizePreferences, applyPreferencesPatch } from '../lib/policies';
+import { MODULE_KEYS, ModuleKey, ModuleMap, isModuleKey, readModuleOverrides, resolveModules, requireModule, clearModuleCache } from '../lib/modules';
 
 const router = Router();
 router.use(authenticateToken);
@@ -601,7 +602,9 @@ router.patch('/policies', authorizeRole(ADMIN_ROLES), async (req: AuthRequest, r
         if (!result.ok) return res.status(400).json({ error: result.error });
         if (!result.changed) return res.json({ policies: current });
 
-        await prisma.organization.update({ where: { id: req.user.orgId }, data: { policies: result.value as any } });
+        // Keep the other keys stored in the same JSON (e.g. `modules`), which this endpoint does not manage.
+        const stored = org.policies && typeof org.policies === 'object' && !Array.isArray(org.policies) ? org.policies as Record<string, unknown> : {};
+        await prisma.organization.update({ where: { id: req.user.orgId }, data: { policies: { ...stored, ...result.value } as any } });
         clearAccountCache();
         const changes = diffFields(flattenSettings(current as any), flattenSettings(result.value as any));
         await audit(req, 'UPDATE_ORG_POLICIES', 'Organization', req.user.orgId, changes.before, changes.after);
@@ -609,6 +612,66 @@ router.patch('/policies', authorizeRole(ADMIN_ROLES), async (req: AuthRequest, r
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Failed to update brokerage policies' });
+    }
+});
+
+// ─── Modules (Settings > Módulos) ────────────────────────────────────────────
+
+const canEditModule = (role: string, key: ModuleKey, map: ModuleMap) =>
+    ADMIN_ROLES.includes(role) && (!map[key].superadminOnly || role === 'SUPERADMIN') && map[key].source !== 'forced_off';
+
+const modulesPayload = (role: string, map: ModuleMap) => ({
+    modules: MODULE_KEYS.map(k => ({ ...map[k], canEdit: canEditModule(role, k, map) })),
+});
+
+// GET /api/settings/modules — every member can read which modules are on (the panel hides the rest)
+router.get('/modules', async (req: AuthRequest, res) => {
+    try {
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        const org = await prisma.organization.findUnique({ where: { id: req.user.orgId }, select: { policies: true } });
+        if (!org) return res.status(404).json({ error: 'Organization not found' });
+        res.json(modulesPayload(req.user.role, resolveModules(readModuleOverrides(org.policies))));
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to load modules' });
+    }
+});
+
+// PUT /api/settings/modules — { modules: { [key]: true | false | null } }; null removes the override.
+// SUPERADMIN / FIRMADMIN only; superadminOnly modules need SUPERADMIN; forced-off modules cannot change.
+router.put('/modules', authorizeRole(ADMIN_ROLES), async (req: AuthRequest, res) => {
+    try {
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        const body = req.body?.modules;
+        if (!body || typeof body !== 'object' || Array.isArray(body)) return res.status(400).json({ error: 'Send { modules: { key: true | false | null } }' });
+
+        const org = await prisma.organization.findUnique({ where: { id: req.user.orgId }, select: { policies: true } });
+        if (!org) return res.status(404).json({ error: 'Organization not found' });
+        const before = readModuleOverrides(org.policies);
+        const current = resolveModules(before);
+        const next = { ...before };
+
+        for (const [key, value] of Object.entries(body as Record<string, unknown>)) {
+            if (!isModuleKey(key)) return res.status(400).json({ error: `Unknown module: ${key}` });
+            if (value !== null && typeof value !== 'boolean') return res.status(400).json({ error: `Module ${key} must be true, false or null` });
+            if (current[key].source === 'forced_off') return res.status(400).json({ error: `Module ${key} is turned off for the whole installation` });
+            if (current[key].superadminOnly && req.user.role !== 'SUPERADMIN') return res.status(403).json({ error: `Only a SUPERADMIN can change module ${key}` });
+            if (value === null) delete next[key]; else next[key] = value;
+        }
+
+        const changedKeys = MODULE_KEYS.filter(k => before[k] !== next[k]);
+        if (changedKeys.length) {
+            const stored = org.policies && typeof org.policies === 'object' && !Array.isArray(org.policies) ? org.policies as Record<string, unknown> : {};
+            await prisma.organization.update({ where: { id: req.user.orgId }, data: { policies: { ...stored, modules: next } as any } });
+            clearModuleCache(req.user.orgId);
+            clearAccountCache();
+            const pick = (o: Partial<Record<ModuleKey, boolean>>) => Object.fromEntries(changedKeys.map(k => [k, o[k] ?? null]));
+            await audit(req, 'UPDATE_ORG_MODULES', 'Organization', req.user.orgId, pick(before), pick(next));
+        }
+        res.json(modulesPayload(req.user.role, resolveModules(next)));
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to update modules' });
     }
 });
 
@@ -650,7 +713,7 @@ router.patch('/preferences', async (req: AuthRequest, res) => {
 const VALID_STRATEGIES = ['LISTING_AGENT', 'SPECIFIC_AGENT', 'ROUND_ROBIN', 'LEAST_LOADED'];
 
 // PATCH /api/settings/users/:id/lead-availability — update acceptingLeads / maxActiveLeads
-router.patch('/users/:id/lead-availability', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), async (req: AuthRequest, res) => {
+router.patch('/users/:id/lead-availability', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), requireModule('leadRouting'), async (req: AuthRequest, res) => {
     const user = req.user!;
     const target = await prisma.user.findFirst({ where: { id: String(req.params.id), orgId: user.orgId } });
     if (!target) return res.status(404).json({ error: 'User not found' });
@@ -671,7 +734,7 @@ router.patch('/users/:id/lead-availability', authorizeRole(['SUPERADMIN', 'FIRMA
 });
 
 // GET /api/settings/lead-routing — list all lead routing rules for the organization
-router.get('/lead-routing', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), async (req: AuthRequest, res) => {
+router.get('/lead-routing', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), requireModule('leadRouting'), async (req: AuthRequest, res) => {
     const rules = await prisma.leadRoutingRule.findMany({
         where: { orgId: req.user!.orgId },
         orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
@@ -680,7 +743,7 @@ router.get('/lead-routing', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']
 });
 
 // POST /api/settings/lead-routing — create a new lead routing rule
-router.post('/lead-routing', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), async (req: AuthRequest, res) => {
+router.post('/lead-routing', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), requireModule('leadRouting'), async (req: AuthRequest, res) => {
     const user = req.user!;
     const name = typeof req.body.name === 'string' ? req.body.name.trim().slice(0, 120) : '';
     if (!name) return res.status(400).json({ error: 'Rule name is required' });
@@ -716,7 +779,7 @@ router.post('/lead-routing', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER'
 });
 
 // PATCH /api/settings/lead-routing/:id — update a routing rule (enable/disable, priority, conditions)
-router.patch('/lead-routing/:id', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), async (req: AuthRequest, res) => {
+router.patch('/lead-routing/:id', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), requireModule('leadRouting'), async (req: AuthRequest, res) => {
     const user = req.user!;
     const existing = await prisma.leadRoutingRule.findFirst({ where: { id: String(req.params.id), orgId: user.orgId } });
     if (!existing) return res.status(404).json({ error: 'Routing rule not found' });
@@ -738,7 +801,7 @@ router.patch('/lead-routing/:id', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MAN
 });
 
 // DELETE /api/settings/lead-routing/:id
-router.delete('/lead-routing/:id', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), async (req: AuthRequest, res) => {
+router.delete('/lead-routing/:id', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), requireModule('leadRouting'), async (req: AuthRequest, res) => {
     const user = req.user!;
     const existing = await prisma.leadRoutingRule.findFirst({ where: { id: String(req.params.id), orgId: user.orgId } });
     if (!existing) return res.status(404).json({ error: 'Routing rule not found' });
@@ -747,7 +810,7 @@ router.delete('/lead-routing/:id', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MA
 });
 
 // POST /api/settings/lead-routing/test — dry-run simulator to preview which agent receives a lead
-router.post('/lead-routing/test', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), async (req: AuthRequest, res) => {
+router.post('/lead-routing/test', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), requireModule('leadRouting'), async (req: AuthRequest, res) => {
     const user = req.user!;
     const decision = await resolveLeadAssignee(
         {

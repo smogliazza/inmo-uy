@@ -14,6 +14,7 @@
     "postinstall": "npx prisma generate",
     "test": "npm run test:smoke",
     "test:smoke": "ts-node --transpile-only tests/smoke.ts",
+    "test:unit": "ts-node --transpile-only tests/modules.test.ts",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "ts-node prisma/seed.ts",
     "typecheck": "tsc --skipLibCheck --noEmit",

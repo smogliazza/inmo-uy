@@ -16,6 +16,8 @@ const ROLE_WEIGHT: Record<string, number> = {
 
 import { INPUT_CLS, SELECT_CLS, TEXTAREA_CLS, LOCKED_BADGE, Toggle, SectionHeader, SettingRow, LockedRow, SubTabs } from "./ui";
 import { CrmSettings, PropertiesSettings, FinanceSettings, AppointmentsSettings, DocumentsSettings } from "./PolicySections";
+import ModulesSettings from "./ModulesSettings";
+import { useModules, ModuleKey } from "@/lib/modules";
 
 // ─── Permission level types ─────────────────────────────────────────────────────
 type PermLevel = "full" | "team" | "own" | "read" | "none";
@@ -44,6 +46,7 @@ export default function SettingsPage() {
   const { user, updateUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const toast = useToast();
+  const { isOn: isModuleOn } = useModules();
 
   const S    = (t as any).settings   ?? {};
   const R    = (t as any).roles      ?? {};
@@ -113,7 +116,8 @@ export default function SettingsPage() {
         { key: "org-settings",   label: S.nav?.orgSettings   ?? "Org Settings",   icon: "🏢", adminOnly: true },
         { key: "access-control", label: S.nav?.accessControl ?? "Access Control", icon: "🛡️", adminOnly: true },
         { key: "users",          label: S.nav?.users         ?? "Team & Roles",   icon: "👥", adminOnly: true },
-        { key: "lead-routing",   label: useExtra().leadRouting.navLabel,          icon: "🎯", adminOnly: true },
+        { key: "modules",        label: useExtra().modules.navLabel,              icon: "🧩", adminOnly: true },
+        { key: "lead-routing",   label: useExtra().leadRouting.navLabel,          icon: "🎯", adminOnly: true, module: "leadRouting" },
         { key: "security",       label: S.nav?.security      ?? "Security",       icon: "🔐" },
         { key: "appearance",     label: S.nav?.appearance    ?? "Appearance",     icon: "🎨" },
         { key: "integrations",   label: S.nav?.integrations  ?? "Integrations",  icon: "🔗" },
@@ -122,12 +126,12 @@ export default function SettingsPage() {
     {
       group: S.nav?.groupFeatures ?? "Features",
       items: [
-        { key: "crm",          label: S.nav?.crm          ?? "CRM",          icon: "🧑‍🤝‍🧑" },
+        { key: "crm",          label: S.nav?.crm          ?? "CRM",          icon: "🧑‍🤝‍🧑", module: "crmLeads" },
         { key: "properties",   label: S.nav?.properties   ?? "Properties",   icon: "🏠" },
-        { key: "finance",      label: S.nav?.finance      ?? "Finance",      icon: "💰" },
-        { key: "appointments", label: S.nav?.appointments ?? "Appointments", icon: "📅" },
-        { key: "documents",    label: S.nav?.documents    ?? "Documents",    icon: "📄" },
-        { key: "marketing",    label: S.nav?.marketing    ?? "Marketing",    icon: "📣" },
+        { key: "finance",      label: S.nav?.finance      ?? "Finance",      icon: "💰", module: "commissions" },
+        { key: "appointments", label: S.nav?.appointments ?? "Appointments", icon: "📅", module: "appointments" },
+        { key: "documents",    label: S.nav?.documents    ?? "Documents",    icon: "📄", module: "documents" },
+        { key: "marketing",    label: S.nav?.marketing    ?? "Marketing",    icon: "📣", module: "marketing" },
       ],
     },
   ];
@@ -1245,6 +1249,7 @@ export default function SettingsPage() {
       case "org-settings":   return renderOrgSettings();
       case "access-control": return renderAccessControl();
       case "users":          return renderUsers();
+      case "modules":        return <ModulesSettings />;
       case "lead-routing":   return renderLeadRouting();
       case "security":       return renderSecurity();
       case "appearance":     return renderAppearance();
@@ -1276,7 +1281,7 @@ export default function SettingsPage() {
       {/* Sidebar */}
       <aside className="w-56 shrink-0 border-r border-border bg-surface overflow-y-auto flex flex-col gap-1 py-4 px-2">
         {NAV.map((group) => {
-          const visibleItems = group.items.filter((item: any) => !(item as any).adminOnly || isManager);
+          const visibleItems = group.items.filter((item: any) => (!(item as any).adminOnly || isManager) && (!item.module || isModuleOn(item.module as ModuleKey)));
           if (visibleItems.length === 0) return null;
           return (
             <div key={group.group} className="mb-4">

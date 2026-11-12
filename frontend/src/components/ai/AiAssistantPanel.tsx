@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/i18n/I18nContext";
 import { useExtra, fmt, aiLanguage } from "@/lib/i18n/extra";
 import { useToast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
-import { AI_ASSISTANT_ENABLED } from "@/lib/features";
+import { useAiAssistantEnabled } from "@/lib/modules";
 
 interface SkillInfo {
   id: string;
@@ -24,10 +24,11 @@ export default function AiAssistantPanel({ onSaved }: { onSaved?: () => void }) 
   const { language } = useI18n();
   const X = useExtra();
   const toast = useToast();
+  const AI_ON = useAiAssistantEnabled();
 
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [configured, setConfigured] = useState(true);
-  const enabled = AI_ASSISTANT_ENABLED;
+  const enabled = AI_ON;
   const [skillId, setSkillId] = useState("listing_description");
   const [properties, setProperties] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
@@ -38,8 +39,9 @@ export default function AiAssistantPanel({ onSaved }: { onSaved?: () => void }) 
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
+    // Nothing to load while the assistant (or its module) is off: those endpoints answer 404 module_disabled.
+    if (!AI_ON) return;
     api("/api/marketing/skills").then((d) => { setSkills(d.skills || []); setConfigured(!!d.configured); }).catch(() => {});
-    if (!AI_ASSISTANT_ENABLED) return;
     api("/api/properties?limit=100").then((d) => setProperties(d.data || [])).catch(() => {});
     api("/api/clients?limit=100").then((d) => setClients(d.data || [])).catch(() => {});
     // Deep link from a client page: /marketing?skill=follow_up&clientId=…
@@ -47,7 +49,7 @@ export default function AiAssistantPanel({ onSaved }: { onSaved?: () => void }) 
     if (params.get("skill")) setSkillId(params.get("skill")!);
     if (params.get("clientId")) setClientId(params.get("clientId")!);
     if (params.get("propertyId")) setPropertyId(params.get("propertyId")!);
-  }, []);
+  }, [AI_ON]);
 
   const skill = skills.find((s) => s.id === skillId);
 

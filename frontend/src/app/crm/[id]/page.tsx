@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { useExtra, fmt } from "@/lib/i18n/extra";
 import { useToast } from "@/components/ui/Toast";
 import { api, dateInputToISO } from "@/lib/api";
-import { AI_ASSISTANT_ENABLED } from "@/lib/features";
+import { useAiAssistantEnabled } from "@/lib/modules";
 
 interface TimelineEvent {
   id: string;
@@ -26,6 +26,7 @@ export default function ClientProfilePage() {
   const { token } = useAuth();
   const X = useExtra();
   const toast = useToast();
+  const AI_ON = useAiAssistantEnabled();
   const [now] = useState(() => Date.now());
 
   const [client, setClient] = useState<any>(null);
@@ -191,7 +192,7 @@ export default function ClientProfilePage() {
             >
               {t.crm.timeline.logActivity}
             </button>
-            {AI_ASSISTANT_ENABLED && <button
+            {AI_ON && <button
               onClick={() => router.push(`/marketing?skill=follow_up&clientId=${id}`)}
               className="flex-1 md:flex-none px-6 py-2.5 bg-surface text-primary ring-1 ring-primary/40 rounded-xl text-base font-semibold hover:bg-primary/5 transition-colors shadow-sm"
             >
