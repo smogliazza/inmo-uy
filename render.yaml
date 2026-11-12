@@ -31,6 +31,11 @@ services:
       # --- Google OAuth (optional) ---
       - key: GOOGLE_CLIENT_ID
         sync: false
+      # --- Geocoding (Nominatim) ---
+      - key: NOMINATIM_URL
+        sync: false
+      - key: GEOCODER_USER_AGENT
+        sync: false
       # --- Platform name used in emails ---
       - key: PLATFORM_NAME
         sync: false

@@ -14,12 +14,13 @@
     "postinstall": "npx prisma generate",
     "test": "npm run test:smoke",
     "test:smoke": "ts-node --transpile-only tests/smoke.ts",
-    "test:unit": "ts-node --transpile-only tests/modules.test.ts",
+    "test:unit": "ts-node --transpile-only tests/modules.test.ts && ts-node --transpile-only tests/geocode.test.ts",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "ts-node prisma/seed.ts",
     "typecheck": "tsc --skipLibCheck --noEmit",
     "release": "ts-node --transpile-only src/release.ts",
-    "release:compiled": "node dist/release.js"
+    "release:compiled": "node dist/release.js",
+    "backfill:prices": "ts-node --transpile-only scripts/backfill-prices.ts"
   },
   "engines": {
     "node": ">=22.12"
@@ -43,6 +44,7 @@
     "multer": "^2.5.0",
     "pg": "^8.23.1",
     "prisma": "^7.10.1",
+    "sharp": "^0.34.5",
     "stripe": "^22.1.1"
   },
   "devDependencies": {

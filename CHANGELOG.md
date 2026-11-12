@@ -24,6 +24,20 @@
 > Desde el fork para Uruguay (`smogliazza/inmo-uy`) las entradas nuevas se escriben en español.
 
 #### Agregado (fork Uruguay)
+- **Propiedades para Uruguay.** Una propiedad puede estar en venta y en alquiler a la vez, cada operación con su
+  precio y su moneda (US$, $, UI, UR) o «Consultar». Campos nuevos: código propio, zona/localidad, superficie
+  edificada en m², terreno en m² o hectáreas, garajes, comodidades, gastos comunes con su moneda, padrón,
+  amoblada, visible o no en el sitio y ubicación en el mapa. Ya no se exigen estado, código postal, precio,
+  dormitorios ni baños: alcanza con dirección o zona, ciudad, tipo y una operación (la inmobiliaria puede sumar
+  obligatorios en Ajustes > Propiedades; dormitorios y baños solo se piden en viviendas).
+- Formulario de propiedad con pestañas **Datos, Precios y Ubicación**, para crear y también **editar**. En
+  Ubicación se busca la dirección o se marca el pin en el mapa, y se elige si el sitio muestra la ubicación
+  exacta, una zona aproximada de unos 300 m o nada.
+- Las fotos subidas se guardan también en WebP en tres tamaños (400, 1024 y 1920 px) para que el sitio cargue
+  rápido; el original se conserva.
+- Estados nuevos de propiedad: Reservada y Alquilada.
+- La importación CSV ya no completa datos de Nueva York (New York / NY / 10001): la ciudad es obligatoria y el
+  precio puede ser «Consultar», en US$ o en $, de venta o de alquiler.
 - **Español de Uruguay por defecto.** La plataforma arranca en español (con voseo en los mensajes y el glosario
   de la especificación: Propiedad, Interesado, Visita, Operación, Departamento, Gastos comunes, m²…). Las
   inmobiliarias y usuarios nuevos empiezan con zona horaria America/Montevideo y moneda US$. Se completaron
@@ -53,6 +67,8 @@
   iniciada (error introducido con el sistema de módulos).
 
 #### Cambiado (fork Uruguay)
+- Las propiedades existentes conservan su precio: al actualizar, cada una pasa a tener un precio de venta en US$
+  con el mismo monto (proceso automático e idempotente; también `npm run backfill:prices`).
 - Las consultas del sitio entran con origen «Sitio web» y «Puertas abiertas» (antes «Website» y «Open House»);
   las reglas de reparto escritas con los nombres anteriores siguen funcionando.
 - **Atención, instalaciones existentes:** con los valores por defecto nuevos quedan **apagados** ofertas y
@@ -447,6 +463,8 @@
 | 前端<br>*Frontend* | `NEXT_PUBLIC_FEATURED_BROKERAGE_SLUG` | 可选：首页 “Browse Listings” 链接到哪家公司<br>*Optional: which company the home page “Browse Listings” links to* |
 | 后端<br>*Backend* | `SENTRY_DSN` | 可选：后端 Sentry 错误上报 DSN，未填时静默不启用<br>*Optional: backend Sentry DSN; silently disabled when empty* |
 | 前端<br>*Frontend* | `NEXT_PUBLIC_SENTRY_DSN` | 可选：前端 Sentry 错误上报 DSN，未填时静默不启用<br>*Optional: frontend Sentry DSN; silently disabled when empty* |
+| Backend | `NOMINATIM_URL` / `GEOCODER_USER_AGENT` | Fork Uruguay: búsqueda de direcciones para ubicar el pin (Nominatim, 1 consulta por segundo; el User-Agent debe identificar a la plataforma con un contacto) |
+| Frontend | `NEXT_PUBLIC_MAP_STYLE_URL` | Fork Uruguay: estilo del mapa (por defecto OpenFreeMap «liberty», sin clave) |
 | Backend | `PLATFORM_NAME` | Fork Uruguay: nombre de la plataforma en los emails (por defecto «Plataforma inmobiliaria») |
 | Frontend | `NEXT_PUBLIC_SUPPORTED_LOCALES` / `NEXT_PUBLIC_DEFAULT_LOCALE` | Fork Uruguay: idiomas que ofrece el selector (por defecto `es,en`) e idioma inicial (`es`). Equivalen a `SUPPORTED_LOCALES` / `DEFAULT_LOCALE` de la especificación; Next.js exige el prefijo `NEXT_PUBLIC_` |
 | Frontend | `NEXT_PUBLIC_PLATFORM_NAME` | Fork Uruguay: nombre de la plataforma en el título y los metadatos del sitio |

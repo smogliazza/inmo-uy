@@ -117,7 +117,7 @@ async function optionalOffSuite() {
     });
 
     await step('core keeps working: listings, dashboard, search, settings', async () => {
-        const p = await call('POST', '/api/properties', a, { address: '9 Core St', city: 'Salto', state: 'Salto', zip: '50000', price: 100000, beds: 1, baths: 1 });
+        const p = await call('POST', '/api/properties', a, { propertyType: 'CASA', address: '9 Core St', city: 'Salto', state: 'Salto', zip: '50000', price: 100000, beds: 1, baths: 1 });
         assert.equal(p.status, 201, JSON.stringify(p.body));
         assert.equal((await call('GET', '/api/properties', a)).status, 200);
         assert.equal((await call('GET', '/api/dashboard', a)).status, 200);
@@ -172,9 +172,9 @@ async function main() {
     let clientId = '', propertyId = '', txId = '', offerId = '', apptId = '';
 
     await step('create listing with validation', async () => {
-        const bad = await call('POST', '/api/properties', a, { address: '1 Test St', city: 'NYC', state: 'NY', zip: '10001', price: 'abc', beds: 1, baths: 1 });
+        const bad = await call('POST', '/api/properties', a, { propertyType: 'CASA', address: '1 Test St', city: 'NYC', state: 'NY', zip: '10001', price: 'abc', beds: 1, baths: 1 });
         assert.equal(bad.status, 400);
-        const r = await call('POST', '/api/properties', a, { address: '1 Test St', city: 'New York', state: 'NY', zip: '10001', price: 1000000, beds: 2, baths: 2 });
+        const r = await call('POST', '/api/properties', a, { propertyType: 'CASA', address: '1 Test St', city: 'New York', state: 'NY', zip: '10001', price: 1000000, beds: 2, baths: 2 });
         assert.equal(r.status, 201, JSON.stringify(r.body));
         propertyId = r.body.id;
     });
@@ -272,7 +272,7 @@ async function main() {
     });
 
     await step('public listing inquiry creates a HOT lead + urgent task', async () => {
-        const p2 = await call('POST', '/api/properties', a, { address: '2 Lead Ave', city: 'New York', state: 'NY', zip: '10002', price: 800000, beds: 1, baths: 1 });
+        const p2 = await call('POST', '/api/properties', a, { propertyType: 'CASA', address: '2 Lead Ave', city: 'New York', state: 'NY', zip: '10002', price: 800000, beds: 1, baths: 1 });
         const detail = await call('GET', `/api/properties/public/${p2.body.id}`);
         assert.equal(detail.status, 200);
         assert.equal(detail.body.agent.name, 'alpha Owner');
@@ -355,7 +355,7 @@ async function main() {
     await step('security basics: password policy, safe links, headers, httpOnly cookie + CSRF', async () => {
         const weak = await call('POST', '/api/auth/register', undefined, { name: 'W', email: `weak-${run}@smoke.test`, password: '123', orgName: 'Weak' });
         assert.equal(weak.status, 400);
-        const js = await call('POST', '/api/properties', a, { address: '3 Bad Ln', city: 'NY', state: 'NY', zip: '10003', price: 1, beds: 1, baths: 1, virtualTourUrl: 'javascript:alert(1)' });
+        const js = await call('POST', '/api/properties', a, { propertyType: 'CASA', address: '3 Bad Ln', city: 'NY', state: 'NY', zip: '10003', price: 1, beds: 1, baths: 1, virtualTourUrl: 'javascript:alert(1)' });
         assert.equal(js.status, 400);
         const res = await fetch(`${API}/api/health`);
         assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
@@ -644,7 +644,7 @@ async function main() {
 
     await step('audit trail covers listings, offers, appointments and documents (no secrets in it)', async () => {
         const sec = await register('audit');
-        const prop = await call('POST', '/api/properties', sec, { address: '1 Audit St', city: 'New York', state: 'NY', zip: '10001', price: 500000, beds: 1, baths: 1 });
+        const prop = await call('POST', '/api/properties', sec, { propertyType: 'CASA', address: '1 Audit St', city: 'New York', state: 'NY', zip: '10001', price: 500000, beds: 1, baths: 1 });
         assert.equal(prop.status, 201, JSON.stringify(prop.body));
         const pid = prop.body.id as string;
         assert.equal((await call('PATCH', `/api/properties/${pid}`, sec, { price: 510000 })).status, 200);
@@ -992,7 +992,7 @@ async function main() {
         const owner = await register('proppol');
         const agent = await joinOrg(owner, 'propagent', 'AGENT');
         const setPolicy = async (body: unknown) => assert.equal((await call('PATCH', '/api/settings/policies', owner, body)).status, 200);
-        const base = { address: '7 Policy St', city: 'New York', state: 'NY', zip: '10007', price: 900000, beds: 2, baths: 1 };
+        const base = { propertyType: 'CASA', address: '7 Policy St', city: 'New York', state: 'NY', zip: '10007', price: 900000, beds: 2, baths: 1 };
 
         // Who can create
         await setPolicy({ properties: { whoCanCreate: 'MANAGERS' } });
@@ -1031,8 +1031,8 @@ async function main() {
 
         // Import: rows marked Active start as Coming Soon (with a warning); missing required fields are reported
         const imp = await call('POST', '/api/properties/import', owner, { rows: [
-            { address: '20 Import Ave', price: 500000, sqft: 700, description: 'Sunny', status: 'Active' },
-            { address: '21 Import Ave', price: 500000, description: 'No size' },
+            { address: '20 Import Ave', city: 'Salto', propertyType: 'CASA', price: 500000, sqft: 700, description: 'Sunny', status: 'Active' },
+            { address: '21 Import Ave', city: 'Salto', propertyType: 'CASA', price: 500000, description: 'No size' },
         ] });
         assert.equal(imp.status, 200, JSON.stringify(imp.body));
         assert.equal(imp.body.created, 1);
@@ -1114,7 +1114,7 @@ async function main() {
         const owner = await register('finpol');
         const agent = await joinOrg(owner, 'finagent', 'AGENT');
         const closedDeal = async (token: string, label: string, price: number) => {
-            const p = await call('POST', '/api/properties', token, { address: `${label} Fin St`, city: 'New York', state: 'NY', zip: '10001', price, beds: 1, baths: 1 });
+            const p = await call('POST', '/api/properties', token, { propertyType: 'CASA', address: `${label} Fin St`, city: 'New York', state: 'NY', zip: '10001', price, beds: 1, baths: 1 });
             assert.equal(p.status, 201, JSON.stringify(p.body));
             const c = await call('POST', '/api/clients', token, { firstName: 'Fin', lastName: label });
             assert.equal(c.status, 201, JSON.stringify(c.body));
@@ -1158,6 +1158,162 @@ async function main() {
         assert.equal(fy.body.ytdGross, 3000, 'only commissions paid since the fiscal year start are counted');
     });
 
+    await step('Uruguay listings: prices per operation, "Consultar", hectares, new fields, backfill, privacy, isolation', async () => {
+        const owner = await register('uyprop');
+        const other = await register('uyprop2');
+
+        // Required fields (spec 6.1)
+        assert.equal((await call('POST', '/api/properties', owner, { address: 'Sin tipo 1', city: 'Salto', price: 1 })).status, 400, 'type is required');
+        assert.equal((await call('POST', '/api/properties', owner, { propertyType: 'CASTILLO', address: 'X 1', city: 'Salto', price: 1 })).status, 400);
+        const noOp = await call('POST', '/api/properties', owner, { propertyType: 'CASA', address: 'Sin precio 1', city: 'Salto' });
+        assert.equal(noOp.status, 400);
+        assert.equal(noOp.body.code, 'PRICE_REQUIRED');
+        assert.equal((await call('POST', '/api/properties', owner, { propertyType: 'CASA', city: 'Salto', price: 1 })).status, 400, 'address or locality');
+
+        // A farm in hectares, price on request, no address (only the locality), no state / zip / beds / baths
+        const campo = await call('POST', '/api/properties', owner, {
+            propertyType: 'CAMPO_CHACRA', locality: 'colonia  lavalleja', city: 'Salto', landArea: '120,5', landAreaUnit: 'HA',
+            prices: [{ operation: 'SALE', onRequest: true }],
+        });
+        assert.equal(campo.status, 201, JSON.stringify(campo.body));
+        assert.equal(campo.body.locality, 'Colonia Lavalleja');
+        assert.equal(campo.body.landArea, 120.5);
+        assert.equal(campo.body.landAreaUnit, 'HA');
+        assert.equal(campo.body.price, null, 'legacy price empty for "Consultar"');
+        assert.equal(campo.body.state, null);
+        assert.equal(campo.body.prices.length, 1);
+        assert.equal(campo.body.prices[0].onRequest, true);
+        assert.equal(campo.body.prices[0].amount, null);
+
+        // For sale in US$ and for rent in $ at the same time; amounts typed the Uruguayan way
+        const casa = await call('POST', '/api/properties', owner, {
+            propertyType: 'CASA', address: 'Uruguay 1234', city: 'Salto', state: 'Salto', beds: 4, baths: 2, builtAreaM2: 180,
+            code: '63361', amenities: ['parrillero', 'patio'], garageSpaces: 1, hoaFee: 3500, hoaFeeCurrency: 'UYU', lat: -31.3833, lng: -57.9667,
+            prices: [{ operation: 'SALE', amount: '290.000', currency: 'USD' }, { operation: 'RENT', amount: 25000, currency: 'UYU' }],
+        });
+        assert.equal(casa.status, 201, JSON.stringify(casa.body));
+        const byOp = Object.fromEntries(casa.body.prices.map((p: any) => [p.operation, p]));
+        assert.equal(Number(byOp.SALE.amount), 290000);
+        assert.equal(byOp.SALE.currency, 'USD');
+        assert.equal(Number(byOp.RENT.amount), 25000);
+        assert.equal(byOp.RENT.currency, 'UYU');
+        assert.equal(byOp.RENT.period, 'MONTH', 'rent defaults to monthly');
+        assert.equal(casa.body.price, 290000, 'legacy price = sale price');
+        assert.equal(casa.body.garageSpaces, 1);
+        assert.equal(casa.body.parkingSpaces, 1, 'parkingSpaces kept in step');
+        assert.deepEqual(casa.body.amenities, ['parrillero', 'patio']);
+        assert.equal((await call('POST', '/api/properties', owner, { propertyType: 'CASA', address: 'Otra 1', city: 'Salto', price: 1, amenities: ['helipuerto'] })).status, 400);
+        assert.equal((await call('POST', '/api/properties', owner, { propertyType: 'CASA', address: 'Otra 2', city: 'Salto', price: 1, code: '63361' })).status, 409, 'code is unique per brokerage');
+        assert.equal((await call('POST', '/api/properties', other, { propertyType: 'CASA', address: 'Otra 3', city: 'Salto', price: 1, code: '63361' })).status, 201, '…but another brokerage can use it');
+        assert.equal((await call('POST', '/api/properties', owner, { propertyType: 'CASA', address: 'Dup 1', city: 'Salto', prices: [{ operation: 'SALE', amount: 1 }, { operation: 'SALE', amount: 2 }] })).status, 400);
+
+        // Dropping an operation deactivates it (nothing is deleted); a legacy `price` only touches the sale
+        const onlySale = await call('PATCH', `/api/properties/${casa.body.id}`, owner, { prices: [{ operation: 'SALE', amount: 280000, currency: 'USD' }] });
+        assert.equal(onlySale.status, 200, JSON.stringify(onlySale.body));
+        const rent = onlySale.body.prices.find((p: any) => p.operation === 'RENT');
+        assert.equal(rent.isActive, false);
+        assert.equal(onlySale.body.price, 280000);
+        const legacy = await call('PATCH', `/api/properties/${casa.body.id}`, owner, { price: 275000 });
+        assert.equal(legacy.body.price, 275000);
+        assert.equal(Number(legacy.body.prices.find((p: any) => p.operation === 'SALE').amount), 275000);
+        assert.equal(legacy.body.prices.find((p: any) => p.operation === 'RENT').isActive, false, 'the inactive rent stays as it was');
+        assert.equal((await call('PATCH', `/api/properties/${casa.body.id}`, owner, { prices: [] })).status, 400, 'at least one operation');
+
+        // Isolation: the other brokerage cannot see or edit it, by id or through the list
+        assert.equal((await call('GET', `/api/properties/${casa.body.id}`, other)).status, 404);
+        assert.equal((await call('PATCH', `/api/properties/${casa.body.id}`, other, { prices: [{ operation: 'SALE', amount: 1 }] })).status, 404);
+        const otherList = await call('GET', '/api/properties?limit=100', other);
+        assert.ok(!otherList.body.data.some((p: any) => p.id === casa.body.id));
+
+        // Public site: hidden listings and coordinates (spec 8.3)
+        const pub = await call('GET', `/api/properties/public/${casa.body.id}`);
+        assert.equal(pub.status, 200);
+        assert.equal(pub.body.lat, -31.3833, 'EXACT shows the pin');
+        assert.ok(pub.body.prices.every((p: any) => p.operation === 'SALE'), 'only active prices are public');
+        await call('PATCH', `/api/properties/${casa.body.id}`, owner, { geoPrecision: 'APPROX' });
+        const approx = await call('GET', `/api/properties/public/${casa.body.id}`);
+        const moved = Math.hypot(approx.body.lat - (-31.3833), approx.body.lng - (-57.9667));
+        assert.ok(moved > 0.0005 && moved < 0.005, `APPROX moves the point by 150–300 m (moved ${moved})`);
+        const again = await call('GET', `/api/properties/public/${casa.body.id}`);
+        assert.equal(again.body.lat, approx.body.lat, 'the same displacement every time');
+        await call('PATCH', `/api/properties/${casa.body.id}`, owner, { geoPrecision: 'HIDDEN' });
+        assert.equal((await call('GET', `/api/properties/public/${casa.body.id}`)).body.lat, null);
+        await call('PATCH', `/api/properties/${casa.body.id}`, owner, { isPublic: false });
+        assert.equal((await call('GET', `/api/properties/public/${casa.body.id}`)).status, 404, 'not public');
+
+        // Policy: bedrooms only required for housing
+        assert.equal((await call('PATCH', '/api/settings/policies', owner, { properties: { requiredFields: ['beds'] } })).status, 200);
+        assert.equal((await call('POST', '/api/properties', owner, { propertyType: 'APARTAMENTO', address: 'Sin dorm 1', city: 'Salto', price: 1 })).status, 400);
+        assert.equal((await call('POST', '/api/properties', owner, { propertyType: 'LOCAL_COMERCIAL', address: 'Local 1', city: 'Salto', price: 1 })).status, 201);
+        assert.equal((await call('PATCH', '/api/settings/policies', owner, { properties: { requiredFields: [] } })).status, 200);
+
+        // CSV import: no New York defaults, "Consultar", currency from the text
+        const imp = await call('POST', '/api/properties/import', owner, {
+            rows: [
+                { address: 'Artigas 500', city: 'salto', price: 'Consultar', propertyType: 'casa' },
+                { address: 'Sin ciudad 1', price: '1000' },
+                { address: 'Rivera 10', city: 'Salto', price: '$ 18.000', operation: 'alquiler', propertyType: 'APARTAMENTO' },
+            ],
+        });
+        assert.equal(imp.status, 200, JSON.stringify(imp.body));
+        assert.equal(imp.body.created, 2);
+        assert.ok(imp.body.errors.some((e: any) => e.row === 2 && /City/.test(e.reason)));
+        const imported = (await call('GET', '/api/properties?limit=100&search=Artigas%20500', owner)).body.data[0];
+        assert.equal(imported.state, null, 'no NY default');
+        assert.equal(imported.zip, null, 'no 10001 default');
+        assert.equal(imported.prices[0].onRequest, true);
+        const rented = (await call('GET', '/api/properties?limit=100&search=Rivera%2010', owner)).body.data[0];
+        assert.equal(rented.prices[0].operation, 'RENT');
+        assert.equal(rented.prices[0].currency, 'UYU');
+        assert.equal(Number(rented.prices[0].amount), 18000);
+
+        // Photos: WebP copies at 400 / 1024 / 1920 px (never enlarged), original kept, all removed with the photo
+        const sharp = (await import('sharp')).default;
+        const jpeg = await sharp({ create: { width: 2400, height: 1600, channels: 3, background: { r: 180, g: 150, b: 120 } } }).jpeg().toBuffer();
+        const up = await uploadFile(owner, jpeg, 'image/jpeg', 'fachada.jpg', 'PUBLIC');
+        assert.equal(up.status, 201, JSON.stringify(up.body));
+        const media = await call('POST', '/api/media', owner, { url: up.body.url, storageKey: up.body.storageKey, mimeType: 'image/jpeg', type: 'image', propertyId: campo.body.id });
+        assert.equal(media.status, 201, JSON.stringify(media.body));
+        assert.equal(media.body.width, 2400);
+        assert.equal(media.body.height, 1600);
+        assert.deepEqual(Object.keys(media.body.variants).sort(), ['lg', 'md', 'thumb']);
+        assert.equal(media.body.variants.thumb.width, 400);
+        assert.equal(media.body.variants.md.width, 1024);
+        assert.equal(media.body.variants.lg.width, 1920);
+        assert.equal(media.body.variants.lg.height, 1280);
+        const lg = await fetch(media.body.variants.lg.url);
+        assert.equal(lg.status, 200);
+        assert.equal(lg.headers.get('content-type'), 'image/webp');
+        assert.ok(media.body.variants.thumb.sizeBytes < jpeg.byteLength, 'the thumbnail is smaller than the original');
+        assert.equal((await fetch(up.body.url)).status, 200, 'original kept');
+        const small = await sharp({ create: { width: 300, height: 200, channels: 3, background: { r: 1, g: 2, b: 3 } } }).png().toBuffer();
+        const upSmall = await uploadFile(owner, small, 'image/png', 'chica.png', 'PUBLIC');
+        const mediaSmall = await call('POST', '/api/media', owner, { url: upSmall.body.url, storageKey: upSmall.body.storageKey, type: 'image', propertyId: campo.body.id });
+        assert.equal(mediaSmall.body.variants.lg.width, 300, 'small photos are not enlarged');
+        // Another brokerage cannot attach this brokerage's upload to get variants of it
+        const otherProp = await call('POST', '/api/properties', other, { propertyType: 'CASA', address: 'Ajena 1', city: 'Salto', price: 1 });
+        const stolen = await call('POST', '/api/media', other, { url: up.body.url, storageKey: up.body.storageKey, type: 'image', propertyId: otherProp.body.id });
+        assert.ok(stolen.status !== 201 || !stolen.body.variants, 'no variants from another brokerage\'s file');
+        assert.equal((await call('DELETE', `/api/media/${media.body.id}`, owner)).status, 200);
+        for (const v of Object.values(media.body.variants) as any[]) assert.equal((await fetch(v.url)).status, 404, 'variants removed with the photo');
+
+        // Backfill: a property with only the legacy price gets a SALE price in USD, once
+        const ownerOrg = (await call('GET', '/api/settings/organization', owner)).body;
+        const ownerUser = (await call('GET', '/api/settings/profile', owner)).body;
+        const legacyRow = await db().property.create({
+            data: { address: 'Legacy 1', city: 'Salto', price: 123456, propertyType: 'CASA', agentId: ownerUser.id, orgId: ownerOrg.id },
+        });
+        const { backfillPrices } = await import('../src/lib/backfillPrices');
+        assert.ok(await backfillPrices(db()) >= 1);
+        const back = (await call('GET', `/api/properties/${legacyRow.id}`, owner)).body;
+        assert.equal(back.prices.length, 1);
+        assert.equal(back.prices[0].operation, 'SALE');
+        assert.equal(back.prices[0].currency, 'USD');
+        assert.equal(Number(back.prices[0].amount), 123456);
+        await backfillPrices(db());
+        assert.equal((await db().propertyPrice.count({ where: { propertyId: legacyRow.id } })), 1, 'idempotent');
+    });
+
     await step('Uruguay localization: brokerage defaults, catalogs, phones in E.164, city names', async () => {
         const owner = await register('uyloc');
         const org = await call('GET', '/api/settings/organization', owner);
@@ -1197,10 +1353,10 @@ async function main() {
         assert.equal(c2.body.phone, '+1 212 555 0100', 'foreign numbers are kept as typed');
 
         // City names: trimmed, capitalized and matched to the existing spelling regardless of accents
-        const p1 = await call('POST', '/api/properties', owner, { address: 'Calle 1', city: '  termas  DEL daymán ', state: 'Salto', zip: '50000', price: 1, beds: 1, baths: 1 });
+        const p1 = await call('POST', '/api/properties', owner, { propertyType: 'CASA', address: 'Calle 1', city: '  termas  DEL daymán ', state: 'Salto', zip: '50000', price: 1, beds: 1, baths: 1 });
         assert.equal(p1.status, 201, JSON.stringify(p1.body));
         assert.equal(p1.body.city, 'Termas del Daymán');
-        const p2 = await call('POST', '/api/properties', owner, { address: 'Calle 2', city: 'Termas del Dayman', state: 'Salto', zip: '50000', price: 1, beds: 1, baths: 1 });
+        const p2 = await call('POST', '/api/properties', owner, { propertyType: 'CASA', address: 'Calle 2', city: 'Termas del Dayman', state: 'Salto', zip: '50000', price: 1, beds: 1, baths: 1 });
         assert.equal(p2.body.city, 'Termas del Daymán', 'same place, existing spelling reused');
         const upd = await call('PATCH', `/api/properties/${p2.body.id}`, owner, { city: 'SALTO' });
         assert.equal(upd.body.city, 'Salto');
@@ -1248,7 +1404,7 @@ async function main() {
         assert.deepEqual(sr.body.transactions, []);
 
         // Lead routing and the public site (a fresh, active listing: earlier steps close the first one)
-        const pub = await call('POST', '/api/properties', owner, { address: '7 Public St', city: 'Salto', state: 'Salto', zip: '50000', price: 120000, beds: 2, baths: 1, status: 'ACTIVE' });
+        const pub = await call('POST', '/api/properties', owner, { propertyType: 'CASA', address: '7 Public St', city: 'Salto', state: 'Salto', zip: '50000', price: 120000, beds: 2, baths: 1, status: 'ACTIVE' });
         assert.equal(pub.status, 201, JSON.stringify(pub.body));
         const pubId = pub.body.id as string;
         assert.equal((await call('GET', `/api/properties/public/${pubId}`)).status, 200, 'public while the module is on');

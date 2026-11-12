@@ -14,6 +14,7 @@
 import { execSync } from 'child_process';
 import path from 'path';
 import { createPrismaClient } from './lib/prisma';
+import { backfillPrices } from './lib/backfillPrices';
 
 const BASELINE = '20260303200258_init_multi_tenant';
 const BACKEND_DIR = path.resolve(__dirname, '..');
@@ -52,6 +53,14 @@ export async function runRelease() {
         await db.$disconnect();
     }
     prisma('migrate deploy');
+    // Data backfills (idempotent): prices per operation from the legacy Property.price (spec 6.2)
+    const db2 = createPrismaClient();
+    try {
+        const n = await backfillPrices(db2);
+        if (n > 0) console.log(`[release] Backfilled ${n} sale price(s) from legacy Property.price.`);
+    } finally {
+        await db2.$disconnect();
+    }
     console.log('[release] Database is up to date.');
 }
 

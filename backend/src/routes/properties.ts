@@ -9,6 +9,9 @@ import { resolveLeadAssignee } from '../lib/routing';
 import { getOrgModules, sendModuleDisabled } from '../lib/modules';
 import { normalizePhoneUY, matchPlaceName } from '../lib/uy';
 import { orgLocale } from '../lib/messages';
+import { parsePrices, parseAmount, parseUyFields, savePrices, validPropertyType, publicCoords, PriceInput } from '../lib/listing';
+import { Prisma } from '@prisma/client';
+import { geocode } from '../lib/geocode';
 
 // City names already used by the brokerage, so new ones reuse the same spelling (accent/case-insensitive)
 async function orgCityNames(orgId: string): Promise<string[]> {
@@ -19,11 +22,11 @@ import { audit, diffFields } from '../lib/audit';
 
 const router = Router();
 
-const PROP_STATUSES = ['COMING_SOON', 'ACTIVE', 'IN_CONTRACT', 'SOLD', 'WITHDRAWN', 'EXPIRED'];
+const PROP_STATUSES = ['COMING_SOON', 'ACTIVE', 'IN_CONTRACT', 'SOLD', 'WITHDRAWN', 'EXPIRED', 'RESERVED', 'RENTED'];
 
 // Listing policy (Settings > Properties): the first rule a listing breaks, or null.
-function listingPolicyError(policy: OrgPolicies['properties'], fields: Record<string, unknown>, onlyPresent: boolean): string | null {
-    return missingListingField(policy, fields, onlyPresent)
+function listingPolicyError(policy: OrgPolicies['properties'], fields: Record<string, unknown>, onlyPresent: boolean, propertyType?: string | null): string | null {
+    return missingListingField(policy, fields, onlyPresent, propertyType)
         ?? (('description' in fields || !onlyPresent) ? descriptionTooLong(policy, fields.description) : null);
 }
 
@@ -42,7 +45,10 @@ const inquiryLimiter = rateLimit({
 const PUBLIC_SELECT = {
     id: true, address: true, city: true, state: true, zip: true, price: true, beds: true, baths: true,
     sqft: true, status: true, description: true, propertyType: true, neighborhood: true, yearBuilt: true,
-    virtualTourUrl: true,
+    virtualTourUrl: true, code: true, locality: true, builtAreaM2: true, landArea: true, landAreaUnit: true,
+    garageSpaces: true, amenities: true, furnished: true, hoaFee: true, hoaFeeCurrency: true,
+    lat: true, lng: true, geoPrecision: true,
+    prices: { where: { isActive: true }, select: { operation: true, amount: true, currency: true, period: true, onRequest: true } },
     mediaAssets: { orderBy: { sortOrder: 'asc' as const }, select: { url: true, type: true, caption: true } },
     agent: { select: { name: true, phone: true, email: true, title: true } },
     organization: { select: { name: true, phone: true, slug: true, logoUrl: true, brandColor: true } },
@@ -73,12 +79,14 @@ router.get('/public', async (req, res) => {
     if (!(await getOrgModules(organization.id)).publicSite.enabled) return sendModuleDisabled(res, 'publicSite');
 
     const properties = await prisma.property.findMany({
-        where: { orgId: organization.id, status: { in: ['ACTIVE', 'COMING_SOON', 'IN_CONTRACT'] } },
+        where: { orgId: organization.id, isPublic: true, status: { in: ['ACTIVE', 'COMING_SOON', 'IN_CONTRACT', 'RESERVED'] } },
         take: 100,
         orderBy: [{ featured: 'desc' }, { createdAt: 'desc' }],
         select: {
             id: true, address: true, city: true, state: true, zip: true, price: true,
-            beds: true, baths: true, sqft: true, status: true,
+            beds: true, baths: true, sqft: true, status: true, propertyType: true, locality: true, code: true,
+            builtAreaM2: true, landArea: true, landAreaUnit: true, lat: true, lng: true, geoPrecision: true,
+            prices: { where: { isActive: true }, select: { operation: true, amount: true, currency: true, period: true, onRequest: true } },
             mediaAssets: { take: 1, orderBy: { sortOrder: 'asc' }, select: { url: true } },
         },
     });
@@ -87,20 +95,20 @@ router.get('/public', async (req, res) => {
     res.json({
         organization: org,
         ...(redirectedFrom ? { redirectedFrom, canonicalSlug: org.slug } : {}),
-        listings: properties.map(({ mediaAssets, ...p }) => ({ ...p, imageUrl: mediaAssets[0]?.url ?? null })),
+        listings: properties.map(({ mediaAssets, ...p }) => ({ ...publicCoords(p), imageUrl: mediaAssets[0]?.url ?? null })),
     });
 });
 
 // GET /api/properties/public/:id — public listing page
 router.get('/public/:id', async (req, res) => {
     const property = await prisma.property.findFirst({
-        where: { id: String(req.params.id), status: { in: ['ACTIVE', 'COMING_SOON', 'IN_CONTRACT'] } },
+        where: { id: String(req.params.id), isPublic: true, status: { in: ['ACTIVE', 'COMING_SOON', 'IN_CONTRACT', 'RESERVED'] } },
         select: { ...PUBLIC_SELECT, orgId: true },
     });
     if (!property) return res.status(404).json({ error: 'Listing not found' });
     if (!(await getOrgModules(property.orgId)).publicSite.enabled) return sendModuleDisabled(res, 'publicSite');
     const { orgId: _orgId, ...listing } = property;
-    res.json(listing);
+    res.json(publicCoords(listing));
 });
 
 // POST /api/properties/public/:id/inquiry — website / open-house lead capture.
@@ -121,7 +129,7 @@ router.post('/public/:id/inquiry', inquiryLimiter, async (req, res) => {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email address' });
 
     const property = await prisma.property.findFirst({
-        where: { id: String(req.params.id), status: { in: ['ACTIVE', 'COMING_SOON', 'IN_CONTRACT'] } },
+        where: { id: String(req.params.id), isPublic: true, status: { in: ['ACTIVE', 'COMING_SOON', 'IN_CONTRACT', 'RESERVED'] } },
     });
     if (!property) return res.status(404).json({ error: 'Listing not found' });
     const modules = await getOrgModules(property.orgId);
@@ -225,6 +233,7 @@ router.get('/', async (req: AuthRequest, res) => {
                 include: {
                     agent:       { select: { id: true, name: true, avatarUrl: true } },
                     mediaAssets: { take: 1, orderBy: { sortOrder: 'asc' } },
+                    prices:      { where: { isActive: true } },
                     _count:      { select: { offers: true, appointments: true } },
                 },
             }),
@@ -262,27 +271,48 @@ router.post('/import', async (req: AuthRequest, res) => {
         const warnings: { row: number; reason: string }[] = [];
 
         const knownCities = await orgCityNames(req.user.orgId);
+        const org = await prisma.organization.findUnique({ where: { id: req.user.orgId }, select: { defaultCurrency: true } });
+        const defaultCurrency = org?.defaultCurrency ?? 'USD';
+        const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
         for (let i = 0; i < rows.length; i++) {
             const raw = rows[i] || {};
-            const address = typeof raw.address === 'string' ? raw.address.trim() : '';
-            const city    = matchPlaceName(typeof raw.city === 'string' && raw.city.trim() ? raw.city : 'New York', knownCities)!;
-            if (!knownCities.includes(city)) knownCities.push(city);
-            const state   = typeof raw.state === 'string' && raw.state.trim() ? raw.state.trim() : 'NY';
-            const zip     = typeof raw.zip === 'string' && raw.zip.trim() ? raw.zip.trim() : '10001';
-            if (!address) {
-                errors.push({ row: i + 1, reason: 'Address is required' });
+            const address = text(raw.address) ?? '';
+            const locality = text(raw.locality);
+            if (!address && !locality) {
+                errors.push({ row: i + 1, reason: 'Address or locality is required' });
                 continue;
             }
+            if (!text(raw.city)) {
+                errors.push({ row: i + 1, reason: 'City is required' });
+                continue;
+            }
+            const city = matchPlaceName(raw.city, knownCities)!;
+            if (!knownCities.includes(city)) knownCities.push(city);
 
-            const nPrice = optNumber(String(raw.price ?? '').replace(/[$,\s]/g, ''));
-            const nBeds  = optNumber(raw.beds ?? 1);
-            const nBaths = optNumber(raw.baths ?? 1);
-            if (nPrice === undefined || nPrice < 0) {
+            // Price: "US$ 290.000", "290000", "$ 25.000" or "Consultar"; optional operation / currency columns
+            const priceText = text(String(raw.price ?? ''));
+            const onRequest = !priceText || /consult/i.test(priceText);
+            const amount = onRequest ? null : parseAmount(priceText);
+            if (amount === 'invalid') {
                 errors.push({ row: i + 1, reason: 'Valid price is required' });
                 continue;
             }
+            const opRaw = (text(raw.operation) ?? '').toLowerCase();
+            const operation = /alquiler|rent|arriendo/.test(opRaw) ? (/temporada|seasonal/.test(opRaw) ? 'SEASONAL_RENT' : 'RENT') : 'SALE';
+            const curRaw = (text(raw.currency) ?? (priceText?.includes('US$') || priceText?.includes('U$S') ? 'USD' : priceText?.trim().startsWith('$') ? 'UYU' : '')).toUpperCase();
+            const currency = curRaw === 'US$' ? 'USD' : curRaw === '$' ? 'UYU' : (['USD', 'UYU', 'UI', 'UR'].includes(curRaw) ? curRaw : defaultCurrency);
+            const priced = parsePrices([{ operation, amount, currency, onRequest: amount === null }], defaultCurrency);
+            if (!priced.ok) {
+                errors.push({ row: i + 1, reason: priced.error });
+                continue;
+            }
 
-            const mlsNumber = typeof raw.mlsNumber === 'string' && raw.mlsNumber.trim() ? raw.mlsNumber.trim() : null;
+            const typeRaw = (text(raw.propertyType) ?? '').toUpperCase().replace(/\s+/g, '_');
+            const propertyType = validPropertyType(typeRaw) ? typeRaw : 'OTRO';
+            if (propertyType !== typeRaw) warnings.push({ row: i + 1, reason: `Unknown property type "${raw.propertyType ?? ''}": imported as OTRO` });
+
+            const code = text(raw.code);
+            const mlsNumber = text(raw.mlsNumber);
             const statusRaw = typeof raw.status === 'string' ? raw.status.trim().toUpperCase().replace(/\s+/g, '_') : 'ACTIVE';
             let status = PROP_STATUSES.includes(statusRaw) ? statusRaw : 'ACTIVE';
             // A new listing has no photos yet, so under a "photos before Active" policy it starts as Coming Soon
@@ -290,31 +320,36 @@ router.post('/import', async (req: AuthRequest, res) => {
             const downgraded = needPhotos > 0 && status === 'ACTIVE';
             if (downgraded) status = 'COMING_SOON';
 
-            const orCond: any[] = [{ address: { equals: address, mode: 'insensitive' }, zip }];
+            const orCond: any[] = [{ address: { equals: address, mode: 'insensitive' }, city: { equals: city, mode: 'insensitive' } }];
             if (mlsNumber) orCond.unshift({ mlsNumber: { equals: mlsNumber, mode: 'insensitive' } });
+            if (code) orCond.unshift({ code });
 
             const existing = await prisma.property.findFirst({
                 where: { orgId: req.user.orgId, OR: orCond },
                 select: { id: true, agentId: true },
             });
 
+            const num = (v: unknown) => { const n = parseAmount(v === undefined || v === null ? '' : String(v)); return n === 'invalid' ? null : n; };
+            const sqft = num(raw.sqft);
             const propData: any = {
-                address, city, state, zip,
-                price: nPrice,
-                beds: nBeds ?? 1,
-                baths: nBaths ?? 1,
-                sqft: optNumber(String(raw.sqft ?? '').replace(/,/g, '')) ? Math.round(optNumber(String(raw.sqft ?? '').replace(/,/g, ''))!) : null,
+                address, locality, city,
+                state: text(raw.state),
+                zip: text(raw.zip),
+                beds: num(raw.beds),
+                baths: num(raw.baths),
+                sqft: sqft !== null ? Math.round(sqft) : null,
+                builtAreaM2: num(raw.builtAreaM2),
                 status,
-                propertyType: typeof raw.propertyType === 'string' && raw.propertyType.trim() ? raw.propertyType.trim().toUpperCase() : 'CONDO',
-                neighborhood: typeof raw.neighborhood === 'string' && raw.neighborhood.trim() ? raw.neighborhood.trim() : null,
+                propertyType,
+                code,
+                neighborhood: text(raw.neighborhood),
                 mlsNumber,
-                description: typeof raw.description === 'string' && raw.description.trim() ? raw.description.trim() : null,
+                description: text(raw.description),
             };
 
             const policyErr = listingPolicyError(policy, {
-                sqft: propData.sqft, propertyType: propData.propertyType, neighborhood: propData.neighborhood,
-                description: propData.description, yearBuilt: raw.yearBuilt ? Number(raw.yearBuilt) : null,
-            }, false);
+                ...propData, yearBuilt: raw.yearBuilt ? Number(raw.yearBuilt) : null,
+            }, false, propertyType);
             if (policyErr) {
                 errors.push({ row: i + 1, reason: policyErr });
                 continue;
@@ -325,8 +360,16 @@ router.post('/import', async (req: AuthRequest, res) => {
             if (existing) {
                 const canEdit = existing.agentId === req.user.userId || ['FIRMADMIN', 'SUPERADMIN', 'MANAGER'].includes(req.user.role);
                 if (onDuplicate === 'update' && canEdit) {
-                    // Updating an existing listing never downgrades an Active one just because of the photo policy
-                    await prisma.property.update({ where: { id: existing.id }, data: propData });
+                    // Updating an existing listing never downgrades an Active one just because of the photo policy.
+                    // Only this row's operation changes; the property's other prices stay.
+                    const current = await prisma.propertyPrice.findMany({ where: { propertyId: existing.id, orgId: req.user.orgId } });
+                    const merged = [...current.filter(c => c.operation !== operation).map(c => ({
+                        operation: c.operation, amount: c.amount, currency: c.currency, period: c.period, onRequest: c.onRequest, isActive: c.isActive,
+                    })), ...priced.prices];
+                    await prisma.$transaction(async (tx) => {
+                        await tx.property.update({ where: { id: existing.id }, data: propData });
+                        await savePrices(tx, existing.id, req.user!.orgId, merged);
+                    });
                     updated++;
                 } else {
                     skipped++;
@@ -334,12 +377,11 @@ router.post('/import', async (req: AuthRequest, res) => {
                 continue;
             }
 
-            await prisma.property.create({
-                data: {
-                    ...propData,
-                    agentId: req.user.userId,
-                    orgId: req.user.orgId,
-                },
+            await prisma.$transaction(async (tx) => {
+                const createdRow = await tx.property.create({
+                    data: { ...propData, externalSource: 'csv', importedAt: new Date(), agentId: req.user!.userId, orgId: req.user!.orgId },
+                });
+                await savePrices(tx, createdRow.id, req.user!.orgId, priced.prices);
             });
             created++;
         }
@@ -348,6 +390,18 @@ router.post('/import', async (req: AuthRequest, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Failed to import properties' });
+    }
+});
+
+// GET /api/properties/geocode?q= — address search for placing the pin (Nominatim, 1 req/s, cached)
+router.get('/geocode', async (req: AuthRequest, res) => {
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    if (q.length < 3) return res.status(400).json({ error: 'Write at least 3 characters' });
+    try {
+        res.json({ results: await geocode(q) });
+    } catch (err) {
+        console.error('[geocode]', err);
+        res.status(502).json({ error: 'The address search is not available right now. Place the pin on the map by hand.' });
     }
 });
 
@@ -362,6 +416,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
             include: {
                 agent:        { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } },
                 mediaAssets:  { orderBy: { sortOrder: 'asc' } },
+                prices:       true,
                 transactions: {
                     include: { client: { select: { firstName: true, lastName: true } } },
                     orderBy:  { createdAt: 'desc' },
@@ -389,13 +444,23 @@ router.get('/:id', async (req: AuthRequest, res) => {
     }
 });
 
+// Prices from a request: `prices` (list, one per operation) or, for older clients, a single `price` = sale price.
+function pricesFromBody(body: any, defaultCurrency: string): { ok: true; prices: PriceInput[] | undefined } | { ok: false; error: string } {
+    if (body.prices !== undefined) return parsePrices(body.prices, defaultCurrency);
+    if (body.price === undefined) return { ok: true, prices: undefined };
+    const n = parseAmount(body.price);
+    if (n === 'invalid') return { ok: false, error: 'A valid price is required' };
+    return parsePrices([{ operation: 'SALE', amount: n, currency: defaultCurrency, onRequest: n === null }], defaultCurrency);
+}
+
+const LEGACY_NUMBERS = ['sqft', 'yearBuilt', 'parkingSpaces', 'hoaFee'] as const;
+
 // POST /api/properties — create property
+// Required (spec 6.1): address or locality, city, type, at least one operation with a price or "Consultar".
 router.post('/', async (req: AuthRequest, res) => {
     try {
         if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-        const { address, city, state, zip, price, beds, baths, sqft, status,
-                description, propertyType, neighborhood, yearBuilt, mlsNumber,
-                hoaFee, parkingSpaces, virtualTourUrl, listingDate } = req.body;
+        const b = req.body || {};
 
         if (!['SUPERADMIN', 'FIRMADMIN', 'MANAGER', 'AGENT'].includes(req.user.role)) {
             return res.status(403).json({ error: 'Your role cannot create listings' });
@@ -404,63 +469,92 @@ router.post('/', async (req: AuthRequest, res) => {
         if (policy.whoCanCreate === 'MANAGERS' && !isManager(req.user)) {
             return res.status(403).json({ error: 'Your brokerage only lets managers create listings' });
         }
-        for (const [k, v] of Object.entries({ address, city, state, zip })) {
-            if (typeof v !== 'string' || !v.trim()) return res.status(400).json({ error: `${k} is required` });
-        }
-        if (virtualTourUrl && !/^https?:\/\//i.test(String(virtualTourUrl).trim())) {
+
+        const address = typeof b.address === 'string' ? b.address.trim() : '';
+        const localityIn = typeof b.locality === 'string' ? b.locality.trim() : '';
+        if (!address && !localityIn) return res.status(400).json({ error: 'Address or locality is required' });
+        if (typeof b.city !== 'string' || !b.city.trim()) return res.status(400).json({ error: 'city is required' });
+        if (!validPropertyType(b.propertyType)) return res.status(400).json({ error: 'A valid property type is required' });
+        if (b.virtualTourUrl && !/^https?:\/\//i.test(String(b.virtualTourUrl).trim())) {
             return res.status(400).json({ error: 'Virtual tour link must start with http:// or https://' });
         }
-        const nPrice = optNumber(price), nBeds = optNumber(beds), nBaths = optNumber(baths);
-        if (nPrice === undefined || nPrice < 0) return res.status(400).json({ error: 'A valid price is required' });
-        if (nBeds === undefined || nBaths === undefined) return res.status(400).json({ error: 'Beds and baths are required' });
+
+        const org = await prisma.organization.findUnique({ where: { id: req.user.orgId }, select: { defaultCurrency: true } });
+        const pr = pricesFromBody(b, org?.defaultCurrency ?? 'USD');
+        if (!pr.ok) return res.status(400).json({ error: pr.error });
+        const prices = pr.prices ?? [];
+        if (!prices.some(p => p.isActive)) return res.status(400).json({ error: 'Add at least one operation (sale or rent) with a price or "Consultar"', code: 'PRICE_REQUIRED' });
+
+        const uy = parseUyFields(b, policy);
+        if (!uy.ok) return res.status(400).json({ error: uy.error });
+        const legacy: Record<string, number | null> = {};
+        for (const f of LEGACY_NUMBERS) {
+            if (b[f] === undefined || b[f] === '' || b[f] === null) continue;
+            const n = optNumber(b[f]);
+            if (n === undefined || n < 0) return res.status(400).json({ error: `Invalid ${f}` });
+            legacy[f] = f === 'hoaFee' ? n : Math.round(n);
+        }
+        // garageSpaces replaces parkingSpaces: keep both in step
+        if (uy.data.garageSpaces === undefined && legacy.parkingSpaces != null) uy.data.garageSpaces = legacy.parkingSpaces;
+        if (legacy.parkingSpaces === undefined && uy.data.garageSpaces != null) legacy.parkingSpaces = uy.data.garageSpaces as number;
 
         const policyErr = listingPolicyError(policy, {
-            sqft: optNumber(sqft) ?? null, propertyType, neighborhood, description, yearBuilt: optNumber(yearBuilt) ?? null,
-        }, false);
+            sqft: legacy.sqft ?? null, propertyType: b.propertyType, neighborhood: b.neighborhood, description: b.description,
+            yearBuilt: legacy.yearBuilt ?? null, ...uy.data, state: b.state,
+        }, false, b.propertyType);
         if (policyErr) return res.status(400).json({ error: policyErr, code: 'LISTING_POLICY' });
 
         // A new listing has no photos, so with "photos before Active" it can only start as Coming Soon
         const needPhotos = policy.photosRequiredToActivate;
-        const requestedStatus = PROP_STATUSES.includes(status) ? status : null;
+        const requestedStatus = PROP_STATUSES.includes(b.status) ? b.status : null;
         const finalStatus = requestedStatus ?? (needPhotos > 0 ? 'COMING_SOON' : 'ACTIVE');
         if (finalStatus === 'ACTIVE' && needPhotos > 0) {
             return res.status(400).json({ error: photosNeededMessage(needPhotos), code: 'PHOTOS_REQUIRED' });
         }
 
-        const property = await prisma.property.create({
-            data: {
-                address: address.trim(), city: matchPlaceName(city, await orgCityNames(req.user.orgId))!, state: state.trim(), zip: zip.trim(),
-                price:         nPrice,
-                beds:          nBeds,
-                baths:         nBaths,
-                sqft:          sqft          ? parseInt(sqft)          : null,
-                yearBuilt:     yearBuilt     ? parseInt(yearBuilt)     : null,
-                parkingSpaces: parkingSpaces ? parseInt(parkingSpaces) : null,
-                hoaFee:        hoaFee        ? parseFloat(hoaFee)      : null,
-                description,
-                status:        finalStatus,
-                propertyType,
-                neighborhood,
-                mlsNumber,
-                virtualTourUrl,
-                listingDate:   listingDate ? new Date(listingDate) : null,
-                agentId:       req.user.userId,
-                orgId:         req.user.orgId,
-            },
+        const cities = await orgCityNames(req.user.orgId);
+        const property = await prisma.$transaction(async (tx) => {
+            const created = await tx.property.create({
+                data: {
+                    address,
+                    city:          matchPlaceName(b.city, cities)!,
+                    state:         typeof b.state === 'string' && b.state.trim() ? b.state.trim() : null,
+                    zip:           typeof b.zip === 'string' && b.zip.trim() ? b.zip.trim() : null,
+                    ...legacy,
+                    ...uy.data,
+                    locality:      localityIn ? matchPlaceName(localityIn, [])! : (uy.data.locality as string | null | undefined) ?? null,
+                    description:   typeof b.description === 'string' ? b.description : null,
+                    status:        finalStatus,
+                    propertyType:  b.propertyType,
+                    neighborhood:  typeof b.neighborhood === 'string' && b.neighborhood.trim() ? b.neighborhood.trim() : null,
+                    mlsNumber:     typeof b.mlsNumber === 'string' && b.mlsNumber.trim() ? b.mlsNumber.trim() : null,
+                    virtualTourUrl: b.virtualTourUrl || null,
+                    listingDate:   b.listingDate ? new Date(b.listingDate) : null,
+                    agentId:       req.user!.userId,
+                    orgId:         req.user!.orgId,
+                } as Prisma.PropertyUncheckedCreateInput,
+            });
+            await savePrices(tx, created.id, req.user!.orgId, prices);
+            return tx.property.findUniqueOrThrow({ where: { id: created.id }, include: { prices: true } });
         });
 
-        await audit(req, 'CREATE_PROPERTY', 'Property', property.id, undefined, { address: property.address, price: property.price, status: property.status });
+        await audit(req, 'CREATE_PROPERTY', 'Property', property.id, undefined, {
+            address: property.address, price: property.price, status: property.status,
+            prices: property.prices.map(p => `${p.operation} ${p.onRequest ? 'consultar' : `${p.currency} ${p.amount}`}`).join('; '),
+        });
         res.status(201).json(property);
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.code === 'P2002') return res.status(409).json({ error: 'Another property of your brokerage already uses this code' });
         console.error(error);
         res.status(500).json({ error: 'Failed to create property' });
     }
 });
 
-// PATCH /api/properties/:id — update property
+// PATCH /api/properties/:id — update property (send only what changes; `prices` replaces the operations)
 router.patch('/:id', async (req: AuthRequest, res) => {
     try {
         if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        const b = req.body || {};
 
         // Verify ownership (agents can only edit own; managers can edit org)
         const existing = await prisma.property.findFirst({
@@ -473,13 +567,13 @@ router.patch('/:id', async (req: AuthRequest, res) => {
         if (!canEdit) return res.status(403).json({ error: 'Forbidden' });
 
         const allowed = [
-            'address','city','state','zip','price','beds','baths','sqft','description',
+            'address','city','state','zip','sqft','description',
             'status','propertyType','neighborhood','yearBuilt','mlsNumber','hoaFee',
             'parkingSpaces','virtualTourUrl','featuredImage','featured','listingDate','expirationDate',
         ];
         const data: any = {};
         for (const key of allowed) {
-            if (req.body[key] !== undefined) data[key] = req.body[key];
+            if (b[key] !== undefined) data[key] = b[key];
         }
         for (const f of ['virtualTourUrl', 'featuredImage']) {
             if (data[f] && !/^https?:\/\//i.test(String(data[f]).trim())) {
@@ -489,11 +583,16 @@ router.patch('/:id', async (req: AuthRequest, res) => {
         if (data.status !== undefined && !PROP_STATUSES.includes(data.status)) {
             return res.status(400).json({ error: 'Invalid status' });
         }
-        for (const f of ['price', 'beds', 'baths']) {
-            if (data[f] === undefined) continue;
-            const n = optNumber(data[f]);
-            if (n === undefined || n < 0) return res.status(400).json({ error: `Invalid ${f}` });
-            data[f] = n;
+        if (data.propertyType !== undefined && !validPropertyType(data.propertyType)) {
+            return res.status(400).json({ error: 'A valid property type is required' });
+        }
+        for (const f of ['address', 'city']) {
+            if (data[f] !== undefined && (typeof data[f] !== 'string' || (f === 'city' && !data[f].trim()))) {
+                return res.status(400).json({ error: `${f} is required` });
+            }
+        }
+        for (const f of ['state', 'zip']) {
+            if (data[f] !== undefined) data[f] = typeof data[f] === 'string' && data[f].trim() ? data[f].trim() : null;
         }
         for (const f of ['sqft', 'yearBuilt', 'parkingSpaces', 'hoaFee']) {
             if (data[f] === undefined) continue;
@@ -506,14 +605,38 @@ router.patch('/:id', async (req: AuthRequest, res) => {
         }
         if (data.featured !== undefined) data.featured = data.featured === true || data.featured === 'true';
         if (typeof data.city === 'string') {
-            const city = matchPlaceName(data.city, await orgCityNames(req.user.orgId));
-            if (!city) return res.status(400).json({ error: 'city is required' });
-            data.city = city;
+            data.city = matchPlaceName(data.city, await orgCityNames(req.user.orgId));
+        }
+
+        const policy = req.user.policies.properties;
+        const uy = parseUyFields(b, policy);
+        if (!uy.ok) return res.status(400).json({ error: uy.error });
+        Object.assign(data, uy.data);
+        if (typeof data.locality === 'string') data.locality = matchPlaceName(data.locality, []);
+        if (data.garageSpaces !== undefined && data.parkingSpaces === undefined) data.parkingSpaces = data.garageSpaces;
+        if (data.parkingSpaces !== undefined && data.garageSpaces === undefined) data.garageSpaces = data.parkingSpaces;
+        const nextAddress = data.address !== undefined ? String(data.address).trim() : existing.address;
+        const nextLocality = data.locality !== undefined ? data.locality : existing.locality;
+        if (data.address !== undefined) data.address = nextAddress;
+        if (!nextAddress && !nextLocality) return res.status(400).json({ error: 'Address or locality is required' });
+
+        const org = await prisma.organization.findUnique({ where: { id: req.user.orgId }, select: { defaultCurrency: true } });
+        const pr = pricesFromBody(b, org?.defaultCurrency ?? 'USD');
+        if (!pr.ok) return res.status(400).json({ error: pr.error });
+        // A legacy `price` only updates the sale price; the other operations stay as they are
+        let prices = pr.prices;
+        if (prices && b.prices === undefined) {
+            const current = await prisma.propertyPrice.findMany({ where: { propertyId: existing.id, orgId: req.user.orgId } });
+            prices = [...current.filter(c => c.operation !== 'SALE').map(c => ({
+                operation: c.operation, amount: c.amount, currency: c.currency, period: c.period, onRequest: c.onRequest, isActive: c.isActive,
+            })), ...prices];
+        }
+        if (prices && !prices.some(p => p.isActive)) {
+            return res.status(400).json({ error: 'Add at least one operation (sale or rent) with a price or "Consultar"', code: 'PRICE_REQUIRED' });
         }
 
         // Listing policy (Settings > Properties)
-        const policy = req.user.policies.properties;
-        const policyErr = listingPolicyError(policy, data, true);
+        const policyErr = listingPolicyError(policy, data, true, data.propertyType ?? existing.propertyType);
         if (policyErr) return res.status(400).json({ error: policyErr, code: 'LISTING_POLICY' });
         if (data.status === 'ACTIVE' && existing.status !== 'ACTIVE' && policy.photosRequiredToActivate > 0) {
             const photos = await prisma.mediaAsset.count({ where: { propertyId: existing.id, type: 'image' } });
@@ -525,11 +648,16 @@ router.patch('/:id', async (req: AuthRequest, res) => {
             }
         }
 
-        const updated = await prisma.property.update({ where: { id: String(req.params.id) }, data });
-        const changes = diffFields(existing, data);
+        const updated = await prisma.$transaction(async (tx) => {
+            await tx.property.update({ where: { id: existing.id }, data });
+            if (prices) await savePrices(tx, existing.id, req.user!.orgId, prices);
+            return tx.property.findUniqueOrThrow({ where: { id: existing.id }, include: { prices: true } });
+        });
+        const changes = diffFields(existing, { ...data, ...(prices ? { price: updated.price } : {}) });
         if (Object.keys(changes.after).length > 0) await audit(req, 'UPDATE_PROPERTY', 'Property', existing.id, changes.before, changes.after);
         res.json(updated);
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.code === 'P2002') return res.status(409).json({ error: 'Another property of your brokerage already uses this code' });
         console.error(error);
         res.status(500).json({ error: 'Failed to update property' });
     }
