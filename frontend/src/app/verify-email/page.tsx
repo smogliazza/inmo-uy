@@ -2,7 +2,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useI18n } from '@/lib/i18n/I18nContext';
+import { useI18n, SUPPORTED_LANGUAGES } from '@/lib/i18n/I18nContext';
 import { useExtra } from '@/lib/i18n/extra';
 
 function VerifyEmailContent() {
@@ -37,7 +37,7 @@ function VerifyEmailContent() {
   }, [token, router, API, V.noToken, V.failedTitle, t.login.serverError]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-8 relative"><div className="absolute top-6 right-8"><select value={language} onChange={e => setLanguage(e.target.value as any)} className="bg-surface border border-border text-foreground text-xs rounded-lg px-2.5 py-1 outline-none focus:border-primary cursor-pointer"><option value="en">English</option><option value="zh-CN">中文（简体）</option><option value="zh-TW">中文（繁體）</option><option value="es">Español</option></select></div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-8 relative"><div className="absolute top-6 right-8"><select value={language} onChange={e => setLanguage(e.target.value as any)} className="bg-surface border border-border text-foreground text-xs rounded-lg px-2.5 py-1 outline-none focus:border-primary cursor-pointer">{SUPPORTED_LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}</select></div>
       <div className="w-full max-w-md text-center">
         {status === 'loading' && (
           <>

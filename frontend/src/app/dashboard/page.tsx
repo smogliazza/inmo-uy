@@ -15,9 +15,10 @@ import {
 } from "recharts";
 import React from "react";
 import Link from "next/link";
-import { useExtra, fmt } from "@/lib/i18n/extra";
+import { useExtra, fmt, label } from "@/lib/i18n/extra";
 import { useSettings } from "@/lib/settings/useSettings";
 import { useModules, ModuleKey } from "@/lib/modules";
+import { fmtLocale } from "@/lib/format";
 
 export default function DashboardPage() {
   const { t } = useI18n();
@@ -143,7 +144,7 @@ export default function DashboardPage() {
             <ul className="space-y-2">
               {dashboardData.todaysAppointments.map((a: any) => (
                 <li key={a.id} className="text-sm">
-                  <span className="font-medium">{new Date(a.date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>{" "}
+                  <span className="font-medium">{new Date(a.date).toLocaleTimeString(fmtLocale(), { hour: "numeric", minute: "2-digit" })}</span>{" "}
                   <span className="text-foreground/80">{a.title}</span>
                   {a.client && <span className="text-foreground/50"> · {a.client.firstName} {a.client.lastName}</span>}
                 </li>
@@ -163,7 +164,7 @@ export default function DashboardPage() {
               {dashboardData.overdueTasks.map((task: any) => (
                 <li key={task.id} className="text-sm flex justify-between gap-2">
                   <span className="text-foreground/80 truncate">{task.title}</span>
-                  <span className="text-red-500 text-xs whitespace-nowrap">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : ""}</span>
+                  <span className="text-red-500 text-xs whitespace-nowrap">{task.dueDate ? new Date(task.dueDate).toLocaleDateString(fmtLocale()) : ""}</span>
                 </li>
               ))}
             </ul>
@@ -210,7 +211,7 @@ export default function DashboardPage() {
               {loading
                 ? "..."
                 : preferences.finance.showIncomeOnDashboard
-                  ? `$${dashboardData.ytdCommission.toLocaleString()}`
+                  ? `$${dashboardData.ytdCommission.toLocaleString(fmtLocale())}`
                   : "••••"}
             </p>
             <div className="mt-6 w-full bg-background rounded-full h-1.5 overflow-hidden ring-1 ring-inset ring-border">
@@ -340,7 +341,7 @@ export default function DashboardPage() {
                     {item.title}
                   </p>
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${item.type === 'OFFER' ? 'bg-primary/10 text-primary' : 'bg-surface-hover text-foreground/40'}`}>
-                    {item.type}
+                    {label(X.labels.event, item.type)}
                   </span>
                 </div>
                 <p className="text-sm text-foreground/50 mb-4 line-clamp-2">

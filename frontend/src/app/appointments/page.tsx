@@ -10,6 +10,7 @@ import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { enUS, zhCN, es } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import { fmtLocale } from "@/lib/format";
 
 const locales = {
   en:     enUS,
@@ -125,7 +126,7 @@ export default function AppointmentsPage() {
         // Show the clash in the viewer's own time zone (the server message is in UTC)
         const c = err.body?.conflict;
         const msg = c?.date
-          ? fmt(X.policy.appointments.overlaps, { title: c.title, time: new Date(c.date).toLocaleString() })
+          ? fmt(X.policy.appointments.overlaps, { title: c.title, time: new Date(c.date).toLocaleString(fmtLocale()) })
           : err.message;
         if (window.confirm(fmt(X.policy.appointments.conflictConfirm, { msg }))) {
           setIsSubmitting(false);
@@ -184,9 +185,9 @@ export default function AppointmentsPage() {
     const dateObj = new Date(apt.date);
     const day = dateObj.getDate().toString().padStart(2, "0");
     const month = dateObj
-      .toLocaleString("default", { month: "short" })
+      .toLocaleString(fmtLocale(), { month: "short" })
       .toUpperCase();
-    const time = dateObj.toLocaleTimeString([], {
+    const time = dateObj.toLocaleTimeString(fmtLocale(), {
       hour: "2-digit",
       minute: "2-digit",
     });

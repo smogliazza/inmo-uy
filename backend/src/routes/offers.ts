@@ -1,5 +1,6 @@
 import express from 'express';
 import { prisma } from '../server';
+import { orgLocale, formatAmount } from '../lib/messages';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { createNotification } from './notifications';
 import { checkRefs, isManager, optDate, optNumber, pickEnum } from '../lib/access';
@@ -56,9 +57,10 @@ router.post('/', async (req: AuthRequest, res) => {
 
     // Tell the listing agent (if it's someone else) that an offer came in
     const listingAgent = offer.property.agentId;
+    const { m, lang } = await orgLocale(user.orgId);
     await createNotification(
-        listingAgent, user.orgId, 'OFFER_RECEIVED', 'New offer received',
-        `An offer of $${amount.toLocaleString()} was submitted for ${offer.property.address}.`, '/transactions',
+        listingAgent, user.orgId, 'OFFER_RECEIVED', m.offerReceived,
+        m.offerReceivedDetail(`$ ${formatAmount(amount, lang)}`, offer.property.address), '/transactions',
     );
     await prisma.client.updateMany({
         where: { id: clientId, funnelStage: { in: ['LEAD', 'QUALIFIED', 'SHOWING'] } },
@@ -100,9 +102,10 @@ router.patch('/:id', async (req: AuthRequest, res) => {
     let transaction = null;
     if (status && status !== offer.status) {
         const type = status === 'ACCEPTED' ? 'OFFER_ACCEPTED' : status === 'REJECTED' ? 'OFFER_REJECTED' : 'SYSTEM';
+        const { m, lang } = await orgLocale(offer.orgId);
         await createNotification(
-            offer.agentId, offer.orgId, type, `Offer ${status.toLowerCase()}`,
-            `Your offer of $${offer.amount.toLocaleString()} on ${offer.property.address} was ${status.toLowerCase()}.`,
+            offer.agentId, offer.orgId, type, m.offerResult(status),
+            m.offerResultDetail(`$ ${formatAmount(offer.amount, lang)}`, offer.property.address, status),
             '/transactions',
         );
 

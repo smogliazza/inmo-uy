@@ -5,11 +5,16 @@ import { useI18n } from "@/lib/i18n/I18nContext";
 import { useToast } from "@/components/ui/Toast";
 import { useExtra } from "@/lib/i18n/extra";
 import { api } from "@/lib/api";
+import { fmtLocale } from "@/lib/format";
+import { useSettings } from "@/lib/settings/useSettings";
 
 export default function TransactionsPage() {
   const { t } = useI18n();
   const toast = useToast();
   const X = useExtra();
+  // New York "board package" stage: hidden in Uruguay unless the brokerage turns it on or a deal is already there
+  const { policies } = useSettings();
+  const usStyleDeal = policies.properties.usStyleDeal;
 
   const respondToOffer = async (offer: any, status: string) => {
     let counterAmount: number | undefined;
@@ -230,7 +235,7 @@ export default function TransactionsPage() {
     }
   };
 
-  const columns = [
+  const allColumns = [
     {
       title: t.transactions.offersReview,
       color: "bg-surface",
@@ -256,6 +261,7 @@ export default function TransactionsPage() {
       deals: getDealsByStatus("CLEARED_TO_CLOSE"),
     },
   ];
+  const columns = allColumns.filter(c => c.title !== t.transactions.boardPackage || usStyleDeal || c.deals.length > 0);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out text-foreground h-full flex flex-col pb-12">
@@ -451,7 +457,7 @@ export default function TransactionsPage() {
                         {offer.client?.firstName} {offer.client?.lastName}
                       </td>
                       <td className="py-5 px-6 font-serif text-xl text-right group-hover:text-primary transition-colors">
-                        ${offer.amount.toLocaleString()}
+                        ${offer.amount.toLocaleString(fmtLocale())}
                       </td>
                       <td className="py-5 px-6 text-center">
                         <span
@@ -468,11 +474,11 @@ export default function TransactionsPage() {
                           {(X.offers.status as any)[offer.status] || offer.status}
                         </span>
                         {offer.status === "COUNTER" && offer.counterAmount && (
-                          <div className="text-xs text-foreground/50 mt-1">${offer.counterAmount.toLocaleString()}</div>
+                          <div className="text-xs text-foreground/50 mt-1">${offer.counterAmount.toLocaleString(fmtLocale())}</div>
                         )}
                       </td>
                       <td className="py-5 px-6 font-sans text-base text-foreground/60 text-right">
-                        {new Date(offer.createdAt).toLocaleDateString()}
+                        {new Date(offer.createdAt).toLocaleDateString(fmtLocale())}
                       </td>
                       <td className="py-5 px-6 text-right whitespace-nowrap">
                         {(offer.status === "PENDING" || offer.status === "COUNTER") && (
@@ -587,9 +593,9 @@ export default function TransactionsPage() {
                     <option value="IN_CONTRACT">
                       {t.transactions.modal.stageContract}
                     </option>
-                    <option value="BOARD_PACKAGE">
+                    {usStyleDeal && <option value="BOARD_PACKAGE">
                       {t.transactions.modal.stageBoard}
-                    </option>
+                    </option>}
                     <option value="CLEARED_TO_CLOSE">
                       {t.transactions.modal.stageClose}
                     </option>

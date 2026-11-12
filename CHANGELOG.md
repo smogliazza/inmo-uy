@@ -24,6 +24,21 @@
 > Desde el fork para Uruguay (`smogliazza/inmo-uy`) las entradas nuevas se escriben en español.
 
 #### Agregado (fork Uruguay)
+- **Español de Uruguay por defecto.** La plataforma arranca en español (con voseo en los mensajes y el glosario
+  de la especificación: Propiedad, Interesado, Visita, Operación, Departamento, Gastos comunes, m²…). Las
+  inmobiliarias y usuarios nuevos empiezan con zona horaria America/Montevideo y moneda US$. Se completaron
+  los ~300 textos de Ajustes que faltaban en español. El selector de idioma ofrece español e inglés (el chino
+  sigue disponible, oculto).
+- Números y fechas en formato uruguayo (1.250.000 · 14,39). Los teléfonos uruguayos se guardan como +598… y se
+  muestran en formato local (099 123 456); los extranjeros quedan como se escribieron.
+- Catálogos de Uruguay en Ajustes > Propiedades: tipos (apartamento, casa, terreno, campo/chacra, local
+  comercial…), comodidades y orígenes de consulta (Sitio web, WhatsApp, InfoCasas, Mercado Libre, Gallito…).
+  El departamento se elige de la lista de los 19. Las ciudades se escriben bien solas («termas del dayman» →
+  «Termas del Daymán») y no se duplican por tildes o mayúsculas.
+- Avisos, tareas automáticas, historial del cliente, pendientes del panel y emails llegan en el idioma de la
+  inmobiliaria y con la hora de Montevideo.
+- Conceptos de Nueva York ocultos por defecto (paquete de la junta, importar desde Zillow, orígenes
+  StreetEasy/Zillow). Se pueden volver a mostrar por inmobiliaria.
 - **Módulos.** Cada inmobiliaria enciende solo lo que usa, en **Ajustes > Módulos**: sitio público, mapa, CRM
   de interesados, reparto de consultas, tareas, visitas, documentos, alquileres, ofertas y operaciones,
   comisiones, marketing, referidos, regalos, asistente IA, suscripción Stripe, ingreso con Google y migrador. Un
@@ -33,7 +48,13 @@
 - Entorno local completo con un solo comando: `docker compose up` levanta la base (PostgreSQL 16), la API y el
   sitio web. Las contraseñas se toman de `.env` (copiar de `.env.example`); no hay valores fijos.
 
+#### Corregido (fork Uruguay)
+- Las páginas públicas (portada, registro, propiedades públicas) mandaban al ingreso a quien no tenía sesión
+  iniciada (error introducido con el sistema de módulos).
+
 #### Cambiado (fork Uruguay)
+- Las consultas del sitio entran con origen «Sitio web» y «Puertas abiertas» (antes «Website» y «Open House»);
+  las reglas de reparto escritas con los nombres anteriores siguen funcionando.
 - **Atención, instalaciones existentes:** con los valores por defecto nuevos quedan **apagados** ofertas y
   operaciones, comisiones, marketing, referidos, regalos, suscripción Stripe e ingreso con Google. Para
   mantener cómo funcionaba antes, definir `MODULES_DEFAULT_ON=deals,commissions,marketing,referrals,gifts`
@@ -426,6 +447,9 @@
 | 前端<br>*Frontend* | `NEXT_PUBLIC_FEATURED_BROKERAGE_SLUG` | 可选：首页 “Browse Listings” 链接到哪家公司<br>*Optional: which company the home page “Browse Listings” links to* |
 | 后端<br>*Backend* | `SENTRY_DSN` | 可选：后端 Sentry 错误上报 DSN，未填时静默不启用<br>*Optional: backend Sentry DSN; silently disabled when empty* |
 | 前端<br>*Frontend* | `NEXT_PUBLIC_SENTRY_DSN` | 可选：前端 Sentry 错误上报 DSN，未填时静默不启用<br>*Optional: frontend Sentry DSN; silently disabled when empty* |
+| Backend | `PLATFORM_NAME` | Fork Uruguay: nombre de la plataforma en los emails (por defecto «Plataforma inmobiliaria») |
+| Frontend | `NEXT_PUBLIC_SUPPORTED_LOCALES` / `NEXT_PUBLIC_DEFAULT_LOCALE` | Fork Uruguay: idiomas que ofrece el selector (por defecto `es,en`) e idioma inicial (`es`). Equivalen a `SUPPORTED_LOCALES` / `DEFAULT_LOCALE` de la especificación; Next.js exige el prefijo `NEXT_PUBLIC_` |
+| Frontend | `NEXT_PUBLIC_PLATFORM_NAME` | Fork Uruguay: nombre de la plataforma en el título y los metadatos del sitio |
 | Backend | `MODULES_FORCE_OFF` | Fork Uruguay: módulos apagados para toda la instalación (claves separadas por coma; nadie los puede encender) |
 | Backend | `MODULES_DEFAULT_ON` / `MODULES_DEFAULT_OFF` | Fork Uruguay: valor por defecto de cada módulo para la instalación; cada inmobiliaria puede cambiarlo en Ajustes > Módulos |
 | 前端<br>*Frontend* | `NEXT_PUBLIC_CSP_ENFORCE` | 可选：设为 `true` 时前端 CSP 从仅报告切换为强制拦截，默认 `false`<br>*Optional: `true` switches the frontend CSP from report-only to enforcing; default `false`* |

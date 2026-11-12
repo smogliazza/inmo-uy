@@ -10,13 +10,26 @@ datasource db {
   provider = "postgresql"
 }
 
+// UYU pesos, USD dollars, UI unidades indexadas, UR unidades reajustables
+enum Currency {
+  UYU
+  USD
+  UI
+  UR
+}
+
 // ─── Organization ─────────────────────────────────────────────────────────────
 
 model Organization {
   id                String   @id @default(uuid())
   name              String
   subscription      SubTier  @default(BASIC)
-  preferredLanguage String   @default("en")
+  // Default changed to "es" for the Uruguay platform (existing rows keep their value)
+  preferredLanguage String   @default("es")
+  // Uruguay localization (spec 6.3 / 7)
+  country           String   @default("UY")
+  timezone          String   @default("America/Montevideo")
+  defaultCurrency   Currency @default(USD)
   website           String?
   address           String?
   phone             String?
@@ -78,7 +91,7 @@ model User {
   name              String
   role              Role         @default(AGENT)
   tier              Tier         @default(CORE)
-  preferredLanguage String       @default("en")
+  preferredLanguage String       @default("es")
   orgId             String
   organization      Organization @relation(fields: [orgId], references: [id])
   // Set when the password is reset; null = never changed since the account was created
@@ -91,7 +104,7 @@ model User {
   licenseNumber String?
   linkedIn      String?
   bio           String?
-  timezone      String   @default("America/New_York")
+  timezone      String   @default("America/Montevideo")
 
   // Auth fields
   passwordResetToken  String?

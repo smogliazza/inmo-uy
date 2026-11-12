@@ -1,3 +1,4 @@
+import { messages, Lang, orgLocale } from '../lib/messages';
 import { Router } from 'express';
 import { prisma } from '../server';
 import { authenticateToken, AuthRequest } from '../middleware/authMiddleware';
@@ -74,7 +75,8 @@ function shouldSendEmailForType(prefs: NotificationPrefs, type: string): boolean
     }
 }
 
-function buildNotificationEmailHtml(userName: string, title: string, message: string, link?: string): string {
+function buildNotificationEmailHtml(userName: string, title: string, message: string, link: string | undefined, lang: Lang): string {
+    const m = messages(lang);
     const appUrl = (process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:3000').split(',')[0].trim();
     const actionHref = link ? `${appUrl.replace(/\/$/, '')}${link.startsWith('/') ? link : `/${link}`}` : appUrl;
     return `
@@ -84,10 +86,10 @@ function buildNotificationEmailHtml(userName: string, title: string, message: st
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#f9fafb; margin:0; padding:32px 16px;">
   <div style="max-width:560px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:32px;">
     <div style="font-size:18px; font-weight:700; color:#111827; margin-bottom:8px;">${title}</div>
-    <p style="color:#4b5563; font-size:14px; line-height:1.6; margin:0 0 24px;">Hi ${userName},<br>${message}</p>
-    <a href="${actionHref}" style="display:inline-block; background:#B8977E; color:#ffffff; text-decoration:none; padding:10px 22px; border-radius:6px; font-size:13px; font-weight:600;">Open in CRM</a>
+    <p style="color:#4b5563; font-size:14px; line-height:1.6; margin:0 0 24px;">${m.notificationGreeting(userName)}<br>${message}</p>
+    <a href="${actionHref}" style="display:inline-block; background:#B8977E; color:#ffffff; text-decoration:none; padding:10px 22px; border-radius:6px; font-size:13px; font-weight:600;">${m.notificationOpen}</a>
     <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0">
-    <p style="color:#9ca3af; font-size:11px; margin:0;">You can manage your email alert preferences in CRM Settings → Notifications.</p>
+    <p style="color:#9ca3af; font-size:11px; margin:0;">${lang === 'es' ? 'Podés elegir qué avisos recibir por email en Ajustes → Notificaciones.' : 'You can manage your email alert preferences in Settings → Notifications.'}</p>
   </div>
 </body>
 </html>`;
@@ -187,10 +189,11 @@ export async function createNotification(
         }
 
         if (recipient && recipient.isActive && recipient.email && shouldSendEmailForType(prefs, normalizedType)) {
+            const { lang } = await orgLocale(orgId);
             await sendEmail({
                 to: recipient.email,
-                subject: `[CRM] ${title}`,
-                html: buildNotificationEmailHtml(recipient.name || 'Agent', title, message, link),
+                subject: title,
+                html: buildNotificationEmailHtml(recipient.name || '', title, message, link, lang),
                 text: `${title}\n\n${message}`,
             }).catch(err => console.error('Failed to send notification email:', err));
         }

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../server';
+import { orgLocale, formatAmount, formatDay, monthShort } from '../lib/messages';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { isManager } from '../lib/access';
 import { fiscalYearStart } from '../lib/policies';
@@ -7,7 +8,6 @@ import { STALE_DAYS } from './clients';
 
 const router = Router();
 const DAY = 24 * 60 * 60 * 1000;
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // GET /api/dashboard — managers see the brokerage, agents see their own book
 router.get('/', async (req: AuthRequest, res) => {
@@ -22,6 +22,7 @@ router.get('/', async (req: AuthRequest, res) => {
     const endOfToday = new Date(startOfToday.getTime() + DAY);
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
     // Fiscal year start comes from Settings > Finance (January by default)
+    const { m, lang, timeZone } = await orgLocale(user.orgId);
     const startOfYear = fiscalYearStart(now, user.policies.finance.fiscalYearStartMonth);
     const staleCutoff = new Date(now.getTime() - STALE_DAYS * DAY);
 
@@ -74,7 +75,7 @@ router.get('/', async (req: AuthRequest, res) => {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const sameMonth = (x: Date) => x.getFullYear() === d.getFullYear() && x.getMonth() === d.getMonth();
         chartData.push({
-            name: MONTHS[d.getMonth()],
+            name: monthShort(d.getMonth(), lang),
             deals: recentTransactions.filter(t => sameMonth(t.createdAt)).length,
             commission: paidCommissions.filter(c => c.paidAt && sameMonth(c.paidAt)).reduce((s, c) => s + c.netPayout, 0),
         });
@@ -92,26 +93,26 @@ router.get('/', async (req: AuthRequest, res) => {
 
     const actionItems: any[] = [
         ...overdueTasks.slice(0, 2).map(t => ({
-            id: t.id, type: 'TASK', title: `Overdue: ${t.title}`,
-            subtitle: t.dueDate ? `Was due ${t.dueDate.toISOString().slice(0, 10)}` : '',
-            actionLabel: 'Open Tasks', link: '/tasks',
+            id: t.id, type: 'TASK', title: m.actionOverdue(t.title),
+            subtitle: t.dueDate ? m.actionWasDue(formatDay(t.dueDate, lang, timeZone)) : '',
+            actionLabel: m.actionOpenTasks, link: '/tasks',
         })),
         ...pendingOffersList.map(o => ({
-            id: o.id, type: 'OFFER', title: `Review Offer: $${o.amount.toLocaleString()}`,
-            subtitle: `${o.property.address} (Client: ${o.client.firstName} ${o.client.lastName})`,
-            actionLabel: 'Review & Respond', link: '/transactions',
+            id: o.id, type: 'OFFER', title: m.actionReviewOffer(`$ ${formatAmount(o.amount, lang)}`),
+            subtitle: m.actionOfferSubtitle(o.property.address, `${o.client.firstName} ${o.client.lastName}`.trim()),
+            actionLabel: m.actionReview, link: '/transactions',
         })),
         ...staleLeads.slice(0, 2).map(c => ({
-            id: c.id, type: 'FOLLOW_UP', title: `Follow up: ${c.firstName} ${c.lastName}`,
+            id: c.id, type: 'FOLLOW_UP', title: m.actionFollowUp(`${c.firstName} ${c.lastName}`.trim()),
             subtitle: c.lastContactedAt
-                ? `No contact for ${Math.floor((now.getTime() - c.lastContactedAt.getTime()) / DAY)} days`
-                : 'Never contacted',
-            actionLabel: 'Open Client', link: `/crm/${c.id}`,
+                ? m.actionNoContact(Math.floor((now.getTime() - c.lastContactedAt.getTime()) / DAY))
+                : m.actionNeverContacted,
+            actionLabel: m.actionOpenClient, link: `/crm/${c.id}`,
         })),
         ...pendingGifts.map(g => ({
-            id: g.id, type: 'GIFT', title: `Send Gift: ${g.item}`,
-            subtitle: `Recipient: ${g.client.firstName} ${g.client.lastName}`,
-            actionLabel: 'Order Gift', link: '/services',
+            id: g.id, type: 'GIFT', title: m.actionSendGift(g.item),
+            subtitle: m.actionGiftSubtitle(`${g.client.firstName} ${g.client.lastName}`.trim()),
+            actionLabel: m.actionOrderGift, link: '/services',
         })),
     ].slice(0, 6);
 

@@ -8,6 +8,9 @@ import { audit, diffFields } from '../lib/audit';
 import { resolveLeadAssignee } from '../lib/routing';
 import { normalizeNotificationPrefs } from './notifications';
 import { normalizeOrgPolicies, applyOrgPoliciesPatch, normalizePreferences, applyPreferencesPatch } from '../lib/policies';
+import { normalizePhoneUY } from '../lib/uy';
+import { orgLocale, clearOrgLocaleCache } from '../lib/messages';
+import { CURRENCIES, DEPARTMENTS_UY, ALL_PROPERTY_TYPES, PROPERTY_TYPES_UY, AMENITIES_UY } from '../lib/catalogs';
 import { MODULE_KEYS, ModuleKey, ModuleMap, isModuleKey, readModuleOverrides, resolveModules, requireModule, clearModuleCache } from '../lib/modules';
 
 const router = Router();
@@ -72,7 +75,7 @@ router.patch('/profile', async (req: AuthRequest, res) => {
             data: {
                 ...(name !== undefined ? { name: String(name).trim().slice(0, 120) } : {}),
                 title:         clean(title, 120),
-                phone:         clean(phone, 40),
+                phone:         normalizePhoneUY(clean(phone, 40)),
                 licenseNumber: clean(licenseNumber, 60),
                 linkedIn:      clean(linkedIn, 300),
                 bio:           clean(bio, 2000),
@@ -97,7 +100,7 @@ router.get('/organization', async (req: AuthRequest, res) => {
         if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
         const org = await prisma.organization.findUnique({
             where:  { id: req.user.orgId },
-            select: { id: true, name: true, website: true, address: true, phone: true, licenseNumber: true, logoUrl: true, brandColor: true, subscription: true, defaultCommissionRate: true, defaultFirmSplit: true, slug: true },
+            select: { id: true, name: true, website: true, address: true, phone: true, licenseNumber: true, logoUrl: true, brandColor: true, subscription: true, defaultCommissionRate: true, defaultFirmSplit: true, slug: true, country: true, timezone: true, defaultCurrency: true, preferredLanguage: true },
         });
         if (!org) return res.status(404).json({ error: 'Organization not found' });
         const seats = await getSeatUsage(req.user.orgId);
@@ -127,6 +130,21 @@ router.patch('/organization', authorizeRole(ADMIN_ROLES), async (req: AuthReques
 
         if (name !== undefined && !String(name).trim()) {
             return res.status(400).json({ error: 'Company name cannot be empty' });
+        }
+        // Localization: time zone (IANA), default currency, language
+        const loc: Record<string, string> = {};
+        if (req.body.timezone !== undefined) {
+            const tz = String(req.body.timezone).trim();
+            try { new Intl.DateTimeFormat('en', { timeZone: tz }); } catch { return res.status(400).json({ error: 'Unknown time zone' }); }
+            loc.timezone = tz;
+        }
+        if (req.body.defaultCurrency !== undefined) {
+            if (!(CURRENCIES as readonly string[]).includes(req.body.defaultCurrency)) return res.status(400).json({ error: `defaultCurrency must be one of: ${CURRENCIES.join(', ')}` });
+            loc.defaultCurrency = req.body.defaultCurrency;
+        }
+        if (req.body.preferredLanguage !== undefined) {
+            if (!['es', 'en', 'zh-CN', 'zh-TW'].includes(req.body.preferredLanguage)) return res.status(400).json({ error: 'Unsupported language' });
+            loc.preferredLanguage = req.body.preferredLanguage;
         }
         for (const [field, val] of [['website', website], ['logoUrl', logoUrl]] as const) {
             if (val && !/^https?:\/\//i.test(String(val).trim())) {
@@ -180,18 +198,21 @@ router.patch('/organization', authorizeRole(ADMIN_ROLES), async (req: AuthReques
                 ...(name !== undefined ? { name: String(name).trim().slice(0, 200) } : {}),
                 website:       clean(website, 300),
                 address:       clean(address, 300),
-                phone:         clean(phone, 40),
+                phone:         normalizePhoneUY(clean(phone, 40)),
                 licenseNumber: clean(licenseNumber, 60),
                 logoUrl:       clean(logoUrl, 500),
                 ...(brandColor !== undefined ? { brandColor: clean(brandColor, 20) } : {}),
                 ...(nextSlug !== undefined ? { slug: nextSlug } : {}),
                 ...pct,
+                ...(loc as any),
             },
             select: {
                 id: true, name: true, website: true, address: true, phone: true, licenseNumber: true, logoUrl: true,
                 slug: true, brandColor: true, subscription: true, defaultCommissionRate: true, defaultFirmSplit: true,
+                country: true, timezone: true, defaultCurrency: true, preferredLanguage: true,
             },
         });
+        if (Object.keys(loc).length) clearOrgLocaleCache(req.user.orgId);
         await audit(req, 'UPDATE_ORGANIZATION', 'Organization', updated.id, before, {
             name: updated.name, website: updated.website, address: updated.address,
             phone: updated.phone, licenseNumber: updated.licenseNumber, logoUrl: updated.logoUrl,
@@ -469,7 +490,8 @@ router.post('/invite', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), as
         await audit(req, 'INVITE_MEMBER', 'Invitation', invitation.id, undefined, { email: normalizedEmail, role: inviteRole });
 
         const inviter = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { name: true, email: true } });
-        const inviterName = inviter?.name || inviter?.email || 'A team member';
+        const { m: im } = await orgLocale(req.user.orgId);
+        const inviterName = inviter?.name || inviter?.email || im.someoneFromTeam;
         const org = await prisma.organization.findUnique({ where: { id: req.user.orgId } });
         const appUrl = process.env.APP_URL || 'http://localhost:3000';
 
@@ -477,17 +499,17 @@ router.post('/invite', authorizeRole(['SUPERADMIN', 'FIRMADMIN', 'MANAGER']), as
         try {
             await sendEmail({
                 to:      email.trim().toLowerCase(),
-                subject: `You've been invited to join ${org?.name || 'our team'} on Real Estate CRM`,
+                subject: im.inviteSubject(org?.name || im.yourTeam),
                 html: `
                     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2>You're invited!</h2>
-                        <p><strong>${inviterName}</strong> has invited you to join <strong>${org?.name || 'their team'}</strong> as a <strong>${inviteRole}</strong>.</p>
-                        <p>Click below to accept the invitation and set up your account:</p>
+                        <h2>${im.inviteTitle}</h2>
+                        <p>${im.inviteBody(inviterName, org?.name || im.yourTeam, inviteRole)}</p>
+                        <p>${im.inviteCta}</p>
                         <a href="${appUrl}/signup?invite=${inviteToken}&email=${encodeURIComponent(normalizedEmail)}&org=${req.user.orgId}&role=${inviteRole}"
                            style="display: inline-block; padding: 12px 24px; background: #B8977E; color: white; text-decoration: none; border-radius: 6px; margin: 16px 0;">
-                            Accept Invitation
+                            ${im.inviteButton}
                         </a>
-                        <p style="color: #666; font-size: 12px;">This invitation expires in 7 days.</p>
+                        <p style="color: #666; font-size: 12px;">${im.inviteExpires}</p>
                     </div>
                 `,
             });
@@ -613,6 +635,15 @@ router.patch('/policies', authorizeRole(ADMIN_ROLES), async (req: AuthRequest, r
         console.error(error);
         res.status(500).json({ error: 'Failed to update brokerage policies' });
     }
+});
+
+// GET /api/settings/catalogs — fixed lists (departments, currencies, every valid property type) and the
+// Uruguay defaults; the brokerage's own editable lists are in GET /api/settings/policies.
+router.get('/catalogs', (_req, res) => {
+    res.json({
+        departments: DEPARTMENTS_UY, currencies: CURRENCIES, propertyTypes: ALL_PROPERTY_TYPES,
+        defaults: { propertyTypes: PROPERTY_TYPES_UY, amenities: AMENITIES_UY },
+    });
 });
 
 // ─── Modules (Settings > Módulos) ────────────────────────────────────────────

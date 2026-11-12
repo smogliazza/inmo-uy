@@ -31,6 +31,9 @@ services:
       # --- Google OAuth (optional) ---
       - key: GOOGLE_CLIENT_ID
         sync: false
+      # --- Platform name used in emails ---
+      - key: PLATFORM_NAME
+        sync: false
       # --- Modules (comma-separated keys, see backend/src/lib/modules.ts) ---
       - key: MODULES_FORCE_OFF
         sync: false

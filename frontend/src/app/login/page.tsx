@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { useI18n } from "@/lib/i18n/I18nContext";
+import { useI18n, SUPPORTED_LANGUAGES } from "@/lib/i18n/I18nContext";
 import { useInstallationModules } from "@/lib/modules";
 import { useExtra } from "@/lib/i18n/extra";
 import Link from "next/link";
@@ -70,10 +70,7 @@ export default function LoginPage() {
               onChange={(e) => setLanguage(e.target.value as any)}
               className="bg-transparent border-b border-border text-foreground/60 outline-none text-xs pb-0.5 cursor-pointer hover:border-primary hover:text-foreground transition-colors focus:border-primary"
             >
-              <option value="en"    className="bg-surface">English</option>
-              <option value="zh-CN" className="bg-surface">中文（简体）</option>
-              <option value="zh-TW" className="bg-surface">中文（繁體）</option>
-              <option value="es"    className="bg-surface">Español</option>
+              {SUPPORTED_LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-surface">{l.label}</option>)}
             </select>
           </div>
         </div>
@@ -168,7 +165,7 @@ export default function LoginPage() {
 
               <div className="relative flex py-3 items-center">
                 <div className="flex-grow border-t border-border"></div>
-                <span className="flex-shrink-0 mx-4 text-foreground/30 text-sm font-sans tracking-widest">OR</span>
+                <span className="flex-shrink-0 mx-4 text-foreground/30 text-sm font-sans tracking-widest">{X.labels.or}</span>
                 <div className="flex-grow border-t border-border"></div>
               </div>
 

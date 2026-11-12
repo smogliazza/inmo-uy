@@ -1,4 +1,10 @@
 import { prisma } from '../server';
+import { placeKey } from './uy';
+
+// Sources written before the Uruguay localization match their Spanish names (and vice versa),
+// so existing rules keep working: "Website" = "Sitio web", "Open House" = "Puertas abiertas".
+const SOURCE_ALIASES: Record<string, string> = { 'website': 'sitio web', 'open house': 'puertas abiertas', 'referral': 'referido' };
+const sourceKey = (s: string) => { const k = placeKey(s); return SOURCE_ALIASES[k] ?? k; };
 
 export interface LeadRoutingContext {
     orgId: string;
@@ -76,12 +82,12 @@ function ruleMatches(
     ctx: LeadRoutingContext,
 ): boolean {
     if (rule.source && rule.source.trim()) {
-        if (!ctx.source || rule.source.trim().toLowerCase() !== ctx.source.trim().toLowerCase()) {
+        if (!ctx.source || sourceKey(rule.source) !== sourceKey(ctx.source)) {
             return false;
         }
     }
     if (rule.city && rule.city.trim()) {
-        if (!ctx.city || rule.city.trim().toLowerCase() !== ctx.city.trim().toLowerCase()) {
+        if (!ctx.city || placeKey(rule.city) !== placeKey(ctx.city)) {
             return false;
         }
     }

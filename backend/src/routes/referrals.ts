@@ -1,5 +1,6 @@
 import express from 'express';
 import { prisma } from '../server';
+import { orgLocale } from '../lib/messages';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { checkRefs, isManager, optNumber } from '../lib/access';
 import { createNotification } from './notifications';
@@ -39,7 +40,8 @@ router.post('/', async (req: AuthRequest, res) => {
             status: 'PENDING', orgId: user.orgId,
         },
     });
-    await createNotification(refereeId, user.orgId, 'SYSTEM', 'New referral', 'A colleague sent you a referral.', '/services');
+    const { m } = await orgLocale(user.orgId);
+    await createNotification(refereeId, user.orgId, 'SYSTEM', m.newReferral, m.newReferralDetail, '/services');
     res.status(201).json(referral);
 });
 

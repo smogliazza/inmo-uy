@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useExtra, fmt } from "@/lib/i18n/extra";
 import { useSettings } from "@/lib/settings/useSettings";
 import { api, uploadFile } from "@/lib/api";
+import { fmtLocale } from "@/lib/format";
 
 export default function DocumentsPage() {
   const { t } = useI18n();
@@ -199,7 +200,7 @@ export default function DocumentsPage() {
           <option value="ALL">{t.documents.filters.allTypes}</option>
           <option value="CONTRACT">{t.documents.modal.typeContract}</option>
           <option value="DISCLOSURE">{t.documents.modal.typeDisclosure}</option>
-          <option value="BOARD_PACKAGE">{t.documents.modal.typeBoard}</option>
+          {policies.properties.usStyleDeal && <option value="BOARD_PACKAGE">{t.documents.modal.typeBoard}</option>}
           <option value="OTHER">{t.documents.modal.typeOther}</option>
         </select>
       </div>
@@ -279,7 +280,7 @@ export default function DocumentsPage() {
                       )}
                     </td>
                     <td className="p-6 font-sans text-base text-foreground/60">
-                      {new Date(doc.createdAt).toLocaleDateString()}
+                      {new Date(doc.createdAt).toLocaleDateString(fmtLocale())}
                     </td>
                     <td className="p-6 text-right">
                       <div className="flex gap-4 justify-end">
@@ -427,9 +428,9 @@ export default function DocumentsPage() {
                     <option value="DISCLOSURE">
                       {t.documents.modal.typeDisclosure}
                     </option>
-                    <option value="BOARD_PACKAGE">
+                    {policies.properties.usStyleDeal && <option value="BOARD_PACKAGE">
                       {t.documents.modal.typeBoard}
-                    </option>
+                    </option>}
                     <option value="OTHER">{t.documents.modal.typeOther}</option>
                   </select>
                 </div>

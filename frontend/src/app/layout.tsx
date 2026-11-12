@@ -24,51 +24,51 @@ const notoSerifSC = Noto_Serif_SC({
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://real-estate-agency-crm.vercel.app";
 
+// Platform name: pending the owner's choice (spec, open question 1). Brokerage sites get their own metadata (phase F5).
+const PLATFORM_NAME = process.env.NEXT_PUBLIC_PLATFORM_NAME || "Plataforma inmobiliaria";
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Real Estate CRM — Agent & Brokerage Management Platform",
-    template: "%s | Real Estate CRM",
+    default: `${PLATFORM_NAME}: sitio web y gestión para inmobiliarias`,
+    template: `%s | ${PLATFORM_NAME}`,
   },
   description:
-    "Professional CRM for real estate agents and brokerages. Manage clients, property listings, deal pipelines, commissions and AI marketing — all in one platform. Free plan available.",
+    "Plataforma para inmobiliarias de Uruguay: sitio web con mapa y filtros, CRM de interesados, visitas, documentos y gestión de alquileres, en un solo lugar.",
   keywords: [
-    "real estate CRM",
-    "brokerage management software",
-    "property listing management",
-    "commission tracking software",
-    "real estate agent tools",
-    "NYC real estate software",
-    "luxury real estate CRM",
-    "deal pipeline management",
+    "software inmobiliario Uruguay",
+    "CRM inmobiliario",
+    "sitio web para inmobiliarias",
+    "gestión de alquileres",
+    "propiedades en venta y alquiler",
   ],
-  authors: [{ name: "Real Estate CRM", url: SITE_URL }],
-  creator: "Real Estate CRM",
-  publisher: "Real Estate CRM",
+  authors: [{ name: PLATFORM_NAME, url: SITE_URL }],
+  creator: PLATFORM_NAME,
+  publisher: PLATFORM_NAME,
   alternates: { canonical: SITE_URL },
   openGraph: {
     type: "website",
-    locale: "en_US",
-    alternateLocale: ["zh_CN", "zh_TW", "es_US"],
+    locale: "es_UY",
+    alternateLocale: ["en_US"],
     url: SITE_URL,
-    siteName: "Real Estate CRM",
-    title: "Real Estate CRM — Close More Deals",
+    siteName: PLATFORM_NAME,
+    title: `${PLATFORM_NAME}: tu inmobiliaria, en orden`,
     description:
-      "All-in-one CRM for real estate agents: clients, listings, deals, commissions & AI marketing.",
+      "Sitio web, interesados, visitas y alquileres para inmobiliarias de Uruguay.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Real Estate CRM Dashboard",
+        alt: PLATFORM_NAME,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Real Estate CRM",
+    title: PLATFORM_NAME,
     description:
-      "Manage clients, listings & commissions in one platform. Free plan available.",
+      "Sitio web, interesados, visitas y alquileres para inmobiliarias de Uruguay.",
     images: ["/og-image.png"],
   },
   robots: {
@@ -80,13 +80,13 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "RE CRM",
+    title: PLATFORM_NAME,
   },
   formatDetection: { telephone: false },
   other: {
     "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-capable": "yes",
-    "application-name": "RE CRM",
+    "application-name": PLATFORM_NAME,
     "msapplication-TileColor": "#B8977E",
   },
 };
@@ -97,7 +97,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="luxury" suppressHydrationWarning>
+    <html lang="es-UY" data-theme="luxury" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${notoSerifSC.variable} font-sans antialiased`}
       >

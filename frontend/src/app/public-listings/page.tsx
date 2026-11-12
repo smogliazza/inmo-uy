@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useI18n } from '@/lib/i18n/I18nContext';
+import { useI18n, SUPPORTED_LANGUAGES } from '@/lib/i18n/I18nContext';
 import { useExtra, fmt } from '@/lib/i18n/extra';
+import { fmtLocale } from "@/lib/format";
 
 interface Property {
   id: string;
@@ -30,7 +31,7 @@ const BATHS_OPTIONS = ['Any', '1+', '2+', '3+'];
 function formatPrice(price: number) {
   if (price >= 1_000_000) return `$${(price / 1_000_000).toFixed(price % 1_000_000 === 0 ? 0 : 1)}M`;
   if (price >= 1_000) return `$${(price / 1_000).toFixed(0)}K`;
-  return `$${price.toLocaleString()}`;
+  return `$${price.toLocaleString(fmtLocale())}`;
 }
 
 function PropertyCard({ property, onContact, P }: { property: Property; index: number; onContact: () => void; P: ReturnType<typeof useExtra>['publicListing'] }) {
@@ -86,7 +87,7 @@ function PropertyCard({ property, onContact, P }: { property: Property; index: n
           {property.sqft && (
             <>
               <span className="w-px h-3 bg-border" />
-              <span>{property.sqft.toLocaleString()} {P.sqft}</span>
+              <span>{property.sqft.toLocaleString(fmtLocale())} {P.sqft}</span>
             </>
           )}
         </div>
@@ -195,10 +196,7 @@ export default function PublicListingsPage() {
               onChange={e => setLanguage(e.target.value as any)}
               className="bg-surface border border-border text-foreground text-xs rounded-lg px-2.5 py-1 outline-none focus:border-primary cursor-pointer"
             >
-              <option value="en">EN</option>
-              <option value="zh-CN">简体</option>
-              <option value="zh-TW">繁體</option>
-              <option value="es">ES</option>
+              {SUPPORTED_LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.short}</option>)}
             </select>
             <Link href="/login" className="text-xs text-foreground/50 hover:text-primary uppercase tracking-widest transition-colors hidden sm:block">{P.agentLogin}</Link>
           </div>

@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { prisma } from '../server';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { clientScope, canEditClient, checkRefs, isManager, optDate, pickEnum, AuthUser } from '../lib/access';
+import { normalizePhoneUY } from '../lib/uy';
+import { orgLocale, formatAmount, formatDay } from '../lib/messages';
 import { OrgPolicies, missingClientField } from '../lib/policies';
 import { audit } from '../lib/audit';
 import { createNotification } from './notifications';
@@ -53,7 +55,8 @@ function clientFields(body: any) {
     const textFields = ['email', 'phone', 'budget', 'source', 'tags', 'notes', 'preferredContact', 'referredBy'];
     for (const f of textFields) {
         const v = optStr(body[f]);
-        if (v !== undefined) data[f] = f === 'email' && v ? v.toLowerCase() : v;
+        if (v === undefined) continue;
+        data[f] = f === 'email' && v ? v.toLowerCase() : f === 'phone' ? normalizePhoneUY(v) : v;
     }
     const firstName = str(body.firstName);
     const lastName  = str(body.lastName);
@@ -191,8 +194,9 @@ router.post('/', async (req: AuthRequest, res) => {
     });
 
     if (agentId !== user.userId) {
-        await createNotification(agentId, user.orgId, 'NEW_CLIENT', 'New client assigned to you',
-            `${client.firstName} ${client.lastName} was assigned to you.`, `/crm/${client.id}`);
+        const { m } = await orgLocale(user.orgId);
+        await createNotification(agentId, user.orgId, 'NEW_CLIENT', m.clientAssigned,
+            m.clientAssignedDetail(`${client.firstName} ${client.lastName}`.trim()), `/crm/${client.id}`);
     }
     res.status(201).json(client);
 });
@@ -326,36 +330,37 @@ router.get('/:id/timeline', async (req: AuthRequest, res) => {
         prisma.task.findMany({ where: { linkedClientId: id, orgId } }),
     ]);
 
+    const { m, lang, timeZone } = await orgLocale(orgId);
     const events = [
         ...notes.map(n => ({
             id: n.id, type: 'NOTE', subtype: n.type,
-            title: `${n.type.charAt(0)}${n.type.slice(1).toLowerCase()} logged by ${n.author.name}`,
+            title: m.timelineNote(n.type, n.author.name),
             description: n.content, date: n.createdAt,
         })),
         ...offers.map(o => ({
             id: o.id, type: 'OFFER',
-            title: `Offer for ${o.property.address}`,
-            description: `$${o.amount.toLocaleString()} — ${o.status}`, date: o.createdAt, status: o.status,
+            title: m.timelineOffer(o.property.address),
+            description: m.offerLine(`$ ${formatAmount(o.amount, lang)}`, o.status), date: o.createdAt, status: o.status,
         })),
         ...appointments.map(a => ({
             id: a.id, type: 'APPOINTMENT',
-            title: `${a.type.replace('_', ' ')}: ${a.title}`,
-            description: a.property ? `At ${a.property.address}` : (a.notes || a.location || ''), date: a.date, status: a.status,
+            title: m.timelineAppointment(a.type, a.title),
+            description: a.property ? m.timelineAt(a.property.address) : (a.notes || a.location || ''), date: a.date, status: a.status,
         })),
         ...giftOrders.map(g => ({
-            id: g.id, type: 'GIFT', title: `Gift: ${g.item}`, description: `Status: ${g.status}`, date: g.createdAt, status: g.status,
+            id: g.id, type: 'GIFT', title: m.timelineGift(g.item), description: m.timelineGiftStatus(g.status), date: g.createdAt, status: g.status,
         })),
         ...transactions.map(t => ({
-            id: t.id, type: 'TRANSACTION', title: `Deal ${t.status.replace(/_/g, ' ')}`,
-            description: `Property: ${t.property.address}`, date: t.updatedAt, status: t.status,
+            id: t.id, type: 'TRANSACTION', title: m.timelineDeal(t.status),
+            description: m.timelineDealProperty(t.property.address), date: t.updatedAt, status: t.status,
         })),
         ...tasks.map(t => ({
-            id: t.id, type: 'TASK', title: `Task: ${t.title}`,
-            description: t.dueDate ? `Due ${t.dueDate.toISOString().slice(0, 10)}` : '', date: t.createdAt, status: t.status,
+            id: t.id, type: 'TASK', title: m.timelineTask(t.title),
+            description: t.dueDate ? m.timelineDue(formatDay(t.dueDate, lang, timeZone)) : '', date: t.createdAt, status: t.status,
         })),
         {
-            id: `creation-${client.id}`, type: 'MODIFICATION', title: 'Client record created',
-            description: `Added as ${client.type}${client.source ? ` via ${client.source}` : ''}`, date: client.createdAt,
+            id: `creation-${client.id}`, type: 'MODIFICATION', title: m.timelineCreated,
+            description: m.timelineAddedAs(client.type, client.source), date: client.createdAt,
         },
     ];
     events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -399,8 +404,9 @@ router.patch('/:id', async (req: AuthRequest, res) => {
     const client = await prisma.client.update({ where: { id }, data: data as any });
     if (data.agentId) {
         await audit(req, 'REASSIGN_CLIENT', 'Client', id, { agentId: existing.agentId }, { agentId: data.agentId });
-        await createNotification(String(data.agentId), user.orgId, 'NEW_CLIENT', 'Client assigned to you',
-            `${client.firstName} ${client.lastName} was assigned to you.`, `/crm/${client.id}`);
+        const { m } = await orgLocale(user.orgId);
+        await createNotification(String(data.agentId), user.orgId, 'NEW_CLIENT', m.clientAssigned,
+            m.clientAssignedDetail(`${client.firstName} ${client.lastName}`.trim()), `/crm/${client.id}`);
     }
     res.json(client);
 });
@@ -450,9 +456,10 @@ router.post('/:id/activities', async (req: AuthRequest, res) => {
     // Optional follow-up reminder, e.g. { followUpDate: '2026-11-01' }
     const followUp = optDate(req.body.followUpDate);
     if (followUp) {
+        const { m } = await orgLocale(user.orgId);
         await prisma.task.create({
             data: {
-                title: `Follow up with ${client.firstName} ${client.lastName}`,
+                title: m.followUpTask(`${client.firstName} ${client.lastName}`.trim()),
                 dueDate: followUp, priority: 'MEDIUM',
                 linkedClientId: id, agentId: user.userId, orgId: user.orgId,
             },

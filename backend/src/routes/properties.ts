@@ -7,6 +7,14 @@ import { OrgPolicies, missingListingField, descriptionTooLong } from '../lib/pol
 import { createNotification } from './notifications';
 import { resolveLeadAssignee } from '../lib/routing';
 import { getOrgModules, sendModuleDisabled } from '../lib/modules';
+import { normalizePhoneUY, matchPlaceName } from '../lib/uy';
+import { orgLocale } from '../lib/messages';
+
+// City names already used by the brokerage, so new ones reuse the same spelling (accent/case-insensitive)
+async function orgCityNames(orgId: string): Promise<string[]> {
+    const rows = await prisma.property.findMany({ where: { orgId }, distinct: ['city'], select: { city: true } });
+    return rows.map(r => r.city).filter((c): c is string => Boolean(c));
+}
 import { audit, diffFields } from '../lib/audit';
 
 const router = Router();
@@ -102,9 +110,9 @@ router.post('/public/:id/inquiry', inquiryLimiter, async (req, res) => {
     const clean = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
     const name = clean(req.body.name, 120);
     const email = clean(req.body.email, 200).toLowerCase();
-    const phone = clean(req.body.phone, 40);
+    const phone = normalizePhoneUY(clean(req.body.phone, 40)) || '';
     const message = clean(req.body.message, 2000);
-    const source = req.body.source === 'OPEN_HOUSE' ? 'Open House' : 'Website';
+    const source = req.body.source === 'OPEN_HOUSE' ? 'Puertas abiertas' : 'Sitio web';
     // Honeypot field: real users never fill it in
     if (clean(req.body.website)) return res.status(201).json({ ok: true });
 
@@ -151,18 +159,19 @@ router.post('/public/:id/inquiry', inquiryLimiter, async (req, res) => {
     }
 
     const targetAgentId = isNew ? assignedAgentId : client.agentId;
+    const { m } = await orgLocale(property.orgId);
 
     await prisma.note.create({
         data: {
             type: 'NOTE',
-            content: `${source} inquiry about ${property.address}${message ? `:\n${message}` : ''}`,
+            content: m.inquiryNote(source, property.address, message),
             clientId: client.id, propertyId: property.id,
             authorId: targetAgentId, orgId: property.orgId,
         },
     });
     if (modules.tasks.enabled) await prisma.task.create({
         data: {
-            title: `Call back ${name} about ${property.address}`,
+            title: m.callBackTask(name, property.address),
             priority: 'URGENT', dueDate: new Date(Date.now() + 15 * 60 * 1000),
             linkedClientId: client.id, linkedPropertyId: property.id,
             agentId: targetAgentId, orgId: property.orgId,
@@ -170,8 +179,8 @@ router.post('/public/:id/inquiry', inquiryLimiter, async (req, res) => {
     });
     await createNotification(
         targetAgentId, property.orgId, 'NEW_CLIENT',
-        isNew ? `New ${source.toLowerCase()} lead` : `Returning lead: ${name}`,
-        `${name} asked about ${property.address}. Reach out within 5 minutes.`,
+        isNew ? m.newLead(source) : m.returningLead(name),
+        m.leadDetail(name, property.address),
         `/crm/${client.id}`,
     );
     res.status(201).json({ ok: true });
@@ -252,10 +261,12 @@ router.post('/import', async (req: AuthRequest, res) => {
         const errors: { row: number; reason: string }[] = [];
         const warnings: { row: number; reason: string }[] = [];
 
+        const knownCities = await orgCityNames(req.user.orgId);
         for (let i = 0; i < rows.length; i++) {
             const raw = rows[i] || {};
             const address = typeof raw.address === 'string' ? raw.address.trim() : '';
-            const city    = typeof raw.city === 'string' && raw.city.trim() ? raw.city.trim() : 'New York';
+            const city    = matchPlaceName(typeof raw.city === 'string' && raw.city.trim() ? raw.city : 'New York', knownCities)!;
+            if (!knownCities.includes(city)) knownCities.push(city);
             const state   = typeof raw.state === 'string' && raw.state.trim() ? raw.state.trim() : 'NY';
             const zip     = typeof raw.zip === 'string' && raw.zip.trim() ? raw.zip.trim() : '10001';
             if (!address) {
@@ -418,7 +429,7 @@ router.post('/', async (req: AuthRequest, res) => {
 
         const property = await prisma.property.create({
             data: {
-                address: address.trim(), city: city.trim(), state: state.trim(), zip: zip.trim(),
+                address: address.trim(), city: matchPlaceName(city, await orgCityNames(req.user.orgId))!, state: state.trim(), zip: zip.trim(),
                 price:         nPrice,
                 beds:          nBeds,
                 baths:         nBaths,
@@ -494,6 +505,11 @@ router.patch('/:id', async (req: AuthRequest, res) => {
             data[f] = optDate(data[f]) ?? null;
         }
         if (data.featured !== undefined) data.featured = data.featured === true || data.featured === 'true';
+        if (typeof data.city === 'string') {
+            const city = matchPlaceName(data.city, await orgCityNames(req.user.orgId));
+            if (!city) return res.status(400).json({ error: 'city is required' });
+            data.city = city;
+        }
 
         // Listing policy (Settings > Properties)
         const policy = req.user.policies.properties;

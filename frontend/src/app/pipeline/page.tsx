@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/lib/i18n/I18nContext";
+import { fmtLocale } from "@/lib/format";
+import { useSettings } from "@/lib/settings/useSettings";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const token = () => (typeof window !== "undefined" ? localStorage.getItem("token") || "" : "");
@@ -40,6 +42,8 @@ export default function PipelinePage() {
     const toast = useToast();
     const { t } = useI18n();
     const T = (t as any).pipeline ?? {};
+    // New York "board package" stage: hidden in Uruguay unless turned on or a deal is already there
+    const { policies } = useSettings();
 
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
@@ -143,7 +147,7 @@ export default function PipelinePage() {
 
             {/* Kanban board */}
             <div className="flex gap-4 overflow-x-auto pb-4 flex-1 min-h-0" style={{ scrollSnapType: "x mandatory" }}>
-                {COLUMN_KEYS.map(col => {
+                {COLUMN_KEYS.filter(col => col.key !== "BOARD_PACKAGE" || policies.properties.usStyleDeal || transactions.some(tx => tx.status === col.key)).map(col => {
                     const colLabel = T.columns?.[col.key];
                     const colTxs = transactions.filter(t => t.status === col.key);
                     const colValue = colTxs.reduce((s, t) => s + t.price, 0);
@@ -223,7 +227,7 @@ export default function PipelinePage() {
                                             {tx.closingDate && (
                                                 <span className="text-[10px] text-foreground/40 flex items-center gap-1">
                                                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                                    {new Date(tx.closingDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                                    {new Date(tx.closingDate).toLocaleDateString(fmtLocale(), { month: "short", day: "numeric" })}
                                                 </span>
                                             )}
                                             <span className="text-[10px] text-foreground/30">{tx.agent?.name?.split(" ")[0]}</span>

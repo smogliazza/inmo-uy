@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useI18n } from "@/lib/i18n/I18nContext";
+import { useI18n, SUPPORTED_LANGUAGES } from "@/lib/i18n/I18nContext";
 import { useExtra } from "@/lib/i18n/extra";
 import { api } from "@/lib/api";
+import { fmtLocale } from "@/lib/format";
+import { formatPhoneUY } from "@/lib/catalogs";
 
 const INPUT = "w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground focus:border-primary outline-none";
 
@@ -72,7 +74,7 @@ export default function PublicListingPage() {
       <header className="border-b border-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <Link href={listing.organization?.slug ? `/public-listings?b=${listing.organization.slug}` : "/public-listings"} className="text-sm text-foreground/60 hover:text-primary">← {P.back}</Link>
-          <div className="flex items-center gap-3"><span className="text-sm font-semibold">{listing.organization?.name}</span><select value={language} onChange={e => setLanguage(e.target.value as any)} className="bg-surface border border-border text-foreground text-xs rounded-lg px-2.5 py-1 outline-none focus:border-primary cursor-pointer"><option value="en">EN</option><option value="zh-CN">简体</option><option value="zh-TW">繁體</option><option value="es">ES</option></select></div>
+          <div className="flex items-center gap-3"><span className="text-sm font-semibold">{listing.organization?.name}</span><select value={language} onChange={e => setLanguage(e.target.value as any)} className="bg-surface border border-border text-foreground text-xs rounded-lg px-2.5 py-1 outline-none focus:border-primary cursor-pointer">{SUPPORTED_LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.short}</option>)}</select></div>
         </div>
       </header>
 
@@ -98,13 +100,13 @@ export default function PublicListingPage() {
           )}
 
           <div>
-            <div className="text-3xl font-bold">${Number(listing.price).toLocaleString()}</div>
+            <div className="text-3xl font-bold">${Number(listing.price).toLocaleString(fmtLocale())}</div>
             <h1 className="text-xl mt-1">{listing.address}</h1>
             <p className="text-foreground/60">{listing.city}, {listing.state} {listing.zip}{listing.neighborhood ? ` · ${listing.neighborhood}` : ""}</p>
             <div className="flex flex-wrap gap-4 mt-3 text-sm text-foreground/80">
               <span>{listing.beds} {P.beds}</span>
               <span>{listing.baths} {P.baths}</span>
-              {listing.sqft && <span>{Number(listing.sqft).toLocaleString()} {P.sqft}</span>}
+              {listing.sqft && <span>{Number(listing.sqft).toLocaleString(fmtLocale())} {P.sqft}</span>}
               {listing.propertyType && <span>{String(listing.propertyType).replace(/_/g, " ")}</span>}
               {listing.yearBuilt && <span>{P.built} {listing.yearBuilt}</span>}
               {listing.status === "IN_CONTRACT" && <span className="text-amber-600 font-semibold">{P.inContract}</span>}
@@ -121,7 +123,7 @@ export default function PublicListingPage() {
             <div className="text-xs uppercase tracking-widest text-foreground/50">{P.listedBy}</div>
             <div className="font-semibold mt-1">{listing.agent?.name}</div>
             {listing.agent?.title && <div className="text-sm text-foreground/60">{listing.agent.title}</div>}
-            {listing.agent?.phone && <a href={`tel:${listing.agent.phone}`} className="block text-sm text-primary mt-1">{listing.agent.phone}</a>}
+            {listing.agent?.phone && <a href={`tel:${listing.agent.phone}`} className="block text-sm text-primary mt-1">{formatPhoneUY(listing.agent.phone)}</a>}
           </div>
 
           <div className="border border-border rounded-xl p-5">

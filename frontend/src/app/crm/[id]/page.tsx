@@ -4,10 +4,12 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/I18nContext";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { useExtra, fmt } from "@/lib/i18n/extra";
+import { useExtra, fmt, label } from "@/lib/i18n/extra";
 import { useToast } from "@/components/ui/Toast";
 import { api, dateInputToISO } from "@/lib/api";
 import { useAiAssistantEnabled } from "@/lib/modules";
+import { fmtLocale } from "@/lib/format";
+import { formatPhoneUY } from "@/lib/catalogs";
 
 interface TimelineEvent {
   id: string;
@@ -167,10 +169,10 @@ export default function ClientProfilePage() {
             </h1>
             <div className="flex items-center gap-4 mt-3">
               <span className="text-sm font-semibold px-3 py-1 bg-primary/10 text-primary rounded-full uppercase tracking-widest">
-                {client.type}
+                {label(X.labels.clientType, client.type)}
               </span>
               <span className="text-sm font-semibold px-3 py-1 bg-surface ring-1 ring-border/50 text-foreground/60 rounded-full uppercase tracking-widest">
-                {client.status}
+                {label(X.labels.status, client.status)}
               </span>
               {client.temperature && (
                 <span className={`text-sm font-semibold px-3 py-1 rounded-full uppercase tracking-widest ${client.temperature === "HOT" ? "bg-red-500/10 text-red-500" : client.temperature === "COLD" ? "bg-sky-500/10 text-sky-600" : "bg-amber-500/10 text-amber-600"}`}>
@@ -215,7 +217,7 @@ export default function ClientProfilePage() {
                   {t.crm.timeline.email}
                 </label>
                 <p className="font-sans text-base text-foreground/80 break-all">
-                  {client.email || "N/A"}
+                  {client.email || "—"}
                 </p>
               </div>
               <div>
@@ -223,7 +225,7 @@ export default function ClientProfilePage() {
                   {t.crm.timeline.phone}
                 </label>
                 <p className="font-sans text-base text-foreground/80">
-                  {client.phone || "N/A"}
+                  {formatPhoneUY(client.phone) || "—"}
                 </p>
               </div>
               <div>
@@ -231,7 +233,7 @@ export default function ClientProfilePage() {
                   {t.crm.timeline.budget}
                 </label>
                 <p className="font-sans text-base text-foreground/80">
-                  {client.budget || "N/A"}
+                  {client.budget || "—"}
                 </p>
               </div>
               <div>
@@ -294,7 +296,7 @@ export default function ClientProfilePage() {
                       {event.title}
                     </h4>
                     <span className="text-xs font-sans font-semibold text-foreground/30 uppercase tracking-widest">
-                      {new Date(event.date).toLocaleDateString(undefined, {
+                      {new Date(event.date).toLocaleDateString(fmtLocale(), {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
@@ -310,10 +312,10 @@ export default function ClientProfilePage() {
                   {event.status && (
                     <div className="mt-3 flex gap-2">
                       <span className="text-xs font-bold uppercase tracking-tighter px-2 py-0.5 bg-surface ring-1 ring-border/50 text-foreground/50 rounded">
-                        {event.type}
+                        {label(X.labels.event, event.type)}
                       </span>
                       <span className="text-xs font-bold uppercase tracking-tighter px-2 py-0.5 bg-primary/5 text-primary rounded">
-                        {event.status}
+                        {label(X.labels.status, event.status)}
                       </span>
                     </div>
                   )}
