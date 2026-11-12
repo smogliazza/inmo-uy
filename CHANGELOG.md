@@ -28,6 +28,9 @@
   sitio web. Las contraseñas se toman de `.env` (copiar de `.env.example`); no hay valores fijos.
 
 #### Cambiado (fork Uruguay)
+- Prisma pasa de 4.16 a 7.10.1 (versión estable vigente). No cambia nada para los usuarios ni en la base de
+  datos: no hay migraciones nuevas y las bases existentes siguen funcionando sin intervención. El backend
+  necesita Node.js 22.12 o superior.
 - La API en producción corre compilada (`node dist/server.js`): arranca más rápido y usa menos memoria.
   `npm run build` ahora compila; `ts-node` queda solo para desarrollo (`npm run dev`, `npm run start:ts`).
 - La CI compila la API y corre las migraciones y los smoke tests sobre la versión compilada.

@@ -8,6 +8,7 @@
  */
 import assert from 'node:assert/strict';
 import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../src/lib/prisma';
 import jwt from 'jsonwebtoken';
 
 const API = process.env.API_URL || 'http://localhost:4000';
@@ -50,7 +51,7 @@ async function register(label: string) {
 
 // Shared database handle for steps that need to create staff accounts or back-date data
 let sharedPrisma: PrismaClient | null = null;
-const db = () => (sharedPrisma ??= new PrismaClient());
+const db = () => (sharedPrisma ??= createPrismaClient());
 
 // Invite someone into the owner's brokerage and accept the invitation (needs DATABASE_URL to read the token)
 async function joinOrg(owner: string, label: string, role: string) {
@@ -597,7 +598,7 @@ async function main() {
             console.log('    (skipped: set DATABASE_URL and JWT_SECRET to run the security policy checks)');
             return;
         }
-        const prisma = new PrismaClient();
+        const prisma = createPrismaClient();
         try {
             const owner = await register('secpol');
             const me = await call('GET', '/api/settings/profile', owner);
@@ -682,7 +683,7 @@ async function main() {
             console.log('    (skipped: set DATABASE_URL to run the permission matrix)');
             return;
         }
-        const prisma = new PrismaClient();
+        const prisma = createPrismaClient();
         try {
             const owner = await register('perm');
             const join = async (label: string, role: string) => {

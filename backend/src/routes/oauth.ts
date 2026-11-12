@@ -1,13 +1,13 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../lib/prisma';
 import { orgSlug } from '../lib/slug';
 import { OAuth2Client } from 'google-auth-library';
 import { setAuthCookie } from '../middleware/authMiddleware';
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 // OAuth endpoints are authentication endpoints and must be throttled like the
 // password routes in auth.ts — without this they are an unmetered path for
