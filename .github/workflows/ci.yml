@@ -1,9 +1,8 @@
 name: CI
 
 on:
+  # Every PR, whatever its base: stacked PRs (one phase on top of another) need CI too.
   pull_request:
-    branches:
-      - main
   push:
     branches:
       - main
