@@ -54,11 +54,15 @@ jobs:
         working-directory: backend
         run: npm run typecheck
 
-      - name: Apply database migrations (release script)
+      - name: Compile backend (production build)
         working-directory: backend
-        run: npm run release
+        run: npm run compile
 
-      - name: Start API server & run smoke tests
+      - name: Apply database migrations (compiled release script)
+        working-directory: backend
+        run: npm run release:compiled
+
+      - name: Start compiled API server & run smoke tests
         working-directory: backend
         run: |
           npm start &

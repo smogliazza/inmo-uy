@@ -12,9 +12,10 @@ jobs:
     steps:
       - name: Trigger Vercel Deploy Hook
         run: |
+          # Forks and installs that do not deploy to Vercel have no hook: skip instead of failing.
           if [ -z "$DEPLOY_HOOK" ]; then
-            echo "ERROR: VERCEL_DEPLOY_HOOK secret is not set"
-            exit 1
+            echo "::notice::VERCEL_DEPLOY_HOOK secret is not set; skipping Vercel deploy."
+            exit 0
           fi
           echo "Triggering Vercel deploy hook..."
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DEPLOY_HOOK")

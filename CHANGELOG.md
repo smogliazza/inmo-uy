@@ -21,6 +21,22 @@
 
 ## [未发布]
 
+> Desde el fork para Uruguay (`smogliazza/inmo-uy`) las entradas nuevas se escriben en español.
+
+#### Agregado (fork Uruguay)
+- Entorno local completo con un solo comando: `docker compose up` levanta la base (PostgreSQL 16), la API y el
+  sitio web. Las contraseñas se toman de `.env` (copiar de `.env.example`); no hay valores fijos.
+
+#### Cambiado (fork Uruguay)
+- La API en producción corre compilada (`node dist/server.js`): arranca más rápido y usa menos memoria.
+  `npm run build` ahora compila; `ts-node` queda solo para desarrollo (`npm run dev`, `npm run start:ts`).
+- La CI compila la API y corre las migraciones y los smoke tests sobre la versión compilada.
+- El despliegue a Vercel se saltea (en vez de fallar) cuando no está configurado `VERCEL_DEPLOY_HOOK`.
+- `CLAUDE.md`: los registros del proyecto pasan a español y el código sigue en inglés; se suman las reglas
+  innegociables de la especificación para Uruguay.
+- Variables de entorno: nuevas solo para el entorno local de Docker (`DEV_DB_PASSWORD`, `JWT_SECRET` y puertos
+  opcionales, ver `.env.example` en la raíz). Ninguna nueva en producción.
+
 #### 新增 / Added
 - 设置里的五个栏目现在都是真的：**CRM、房源、财务、预约、文档**。公司管理员定下全公司的规则，每个人再按自己的习惯调整个人偏好；所有规则由服务器强制执行，不是只改界面。
   *Five Settings sections are now real: **CRM, Properties, Finance, Appointments and Documents**. Company admins set the rules for the whole firm and everyone adjusts their own preferences; the server enforces every rule, it is not just a change to the screen.*

@@ -1,0 +1,66 @@
+# Local development stack: db (PostgreSQL 16) + api (Express, hot reload) + web (Next.js dev server).
+# Usage:  cp .env.example .env  (fill in the required values)  &&  docker compose up
+# Production uses docker-compose.prod.yml (phase F4), not this file.
+name: inmo-uy-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DEV_DB_USER:-inmo}
+      POSTGRES_PASSWORD: ${DEV_DB_PASSWORD:?Set DEV_DB_PASSWORD in .env (see .env.example)}
+      POSTGRES_DB: ${DEV_DB_NAME:-inmo_dev}
+    ports:
+      - "127.0.0.1:${DEV_DB_PORT:-5432}:5432"
+    volumes:
+      - pg_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: node:22-bookworm
+    working_dir: /app
+    # Install, apply migrations (idempotent), then run with hot reload.
+    command: sh -c "npm ci --no-audit --no-fund && npm run release && npm run dev"
+    environment:
+      DATABASE_URL: postgresql://${DEV_DB_USER:-inmo}:${DEV_DB_PASSWORD}@db:5432/${DEV_DB_NAME:-inmo_dev}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+      NODE_ENV: development
+      PORT: 4000
+      FRONTEND_URL: http://localhost:${DEV_WEB_PORT:-3000}
+      APP_URL: http://localhost:${DEV_WEB_PORT:-3000}
+      DISABLE_JOBS: ${DISABLE_JOBS:-false}
+    ports:
+      - "127.0.0.1:${DEV_API_PORT:-4000}:4000"
+    volumes:
+      - ./backend:/app
+      - api_node_modules:/app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: node:22-bookworm
+    working_dir: /app
+    command: sh -c "npm ci --no-audit --no-fund && npx next dev -H 0.0.0.0 -p 3000"
+    environment:
+      # The browser calls the API from the host, so this is the host-mapped port.
+      NEXT_PUBLIC_API_URL: http://localhost:${DEV_API_PORT:-4000}
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "127.0.0.1:${DEV_WEB_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/app
+      - web_node_modules:/app/node_modules
+      - web_next:/app/.next
+    depends_on:
+      - api
+
+volumes:
+  pg_data_dev: {}
+  api_node_modules: {}
+  web_node_modules: {}
+  web_next: {}

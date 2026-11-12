@@ -6,8 +6,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/server.ts",
-    "build": "npx prisma generate",
-    "start": "npx ts-node --transpile-only src/server.ts",
+    "build": "prisma generate && tsc --skipLibCheck",
+    "start": "node dist/server.js",
+    "start:ts": "ts-node --transpile-only src/server.ts",
     "start:compiled": "node dist/server.js",
     "compile": "tsc --skipLibCheck",
     "postinstall": "npx prisma generate",
@@ -16,7 +17,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "ts-node prisma/seed.ts",
     "typecheck": "tsc --skipLibCheck --noEmit",
-    "release": "ts-node --transpile-only src/release.ts"
+    "release": "ts-node --transpile-only src/release.ts",
+    "release:compiled": "node dist/release.js"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

@@ -1,3 +1,5 @@
+# Legacy Postgres-only compose from the upstream repo, kept for compatibility.
+# Prefer docker-compose.yml at the repo root (db + api + web).
 version: '3.8'
 
 services:
