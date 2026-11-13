@@ -1,0 +1,78 @@
+# Production stack on one DigitalOcean Droplet (spec section 12). Lives in /opt/inmo-uy on the server
+# together with Caddyfile and the .env.* files (see deploy/*.env.example and guides/droplet-setup.md).
+#
+#   TAG=v1.2.0.0 docker compose -f docker-compose.prod.yml pull
+#   TAG=v1.2.0.0 docker compose -f docker-compose.prod.yml up -d
+#
+# Memory budget for a 2 GB Droplet (+ 2 GB swap): db 512M, api 384M, web 384M, caddy 64M, backup 128M.
+name: inmo-uy
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:?Set PLATFORM_DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
+    depends_on: [api, web]
+    deploy: { resources: { limits: { memory: 64M } } }
+    logging: *logging
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/${GHCR_OWNER:?Set GHCR_OWNER in .env}/inmo-uy-web:${TAG:?Set TAG}
+    env_file: .env.web
+    deploy: { resources: { limits: { memory: 384M } } }
+    logging: *logging
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/${GHCR_OWNER}/inmo-uy-api:${TAG}
+    env_file: .env.api          # migrations run on start (RUN_MIGRATIONS_ON_START, src/release.ts)
+    environment:
+      PLATFORM_DOMAIN: ${PLATFORM_DOMAIN}
+    depends_on:
+      db: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 384M } } }
+    logging: *logging
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    # Tuned for a 2 GB Droplet (spec 4.3); Prisma uses connection_limit=10 in DATABASE_URL
+    command: >-
+      postgres -c shared_buffers=128MB -c effective_cache_size=512MB
+      -c work_mem=4MB -c max_connections=40
+    env_file: .env.db
+    volumes: [pg_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy: { resources: { limits: { memory: 512M } } }
+    logging: *logging
+    restart: unless-stopped
+    # No ports: the database is only reachable inside the compose network
+
+  backup:
+    image: ghcr.io/${GHCR_OWNER}/inmo-uy-backup:${TAG}
+    env_file: .env.backup       # nightly pg_dump | gzip | rclone crypt → R2 (deploy/backup/backup.sh)
+    depends_on:
+      db: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 128M } } }
+    logging: *logging
+    restart: unless-stopped
+
+volumes:
+  pg_data: {}
+  caddy_data: {}
+  caddy_config: {}

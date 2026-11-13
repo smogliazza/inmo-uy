@@ -344,6 +344,11 @@ const en = {
     usStyleDeal: "New York deal concepts",
     usStyleDealDesc: "Shows the board package stage, MLS number, square feet and the Zillow import. Off for Uruguay.",
   },
+  domain: {
+    label: "Your own domain",
+    placeholder: "e.g. castroymeirelles.com.uy",
+    help: "Point an A record of your domain (and of www.) to the platform's IP address. The HTTPS certificate is issued automatically on the first visit. Leave it empty to use only your platform address.",
+  },
 };
 
 type Dict = typeof en;
@@ -690,6 +695,11 @@ const zhCN: Dict = {
     usStyleDeal: "纽约交易概念",
     usStyleDealDesc: "显示董事会材料阶段、MLS 编号、平方英尺和 Zillow 导入。乌拉圭默认关闭。",
   },
+  domain: {
+    label: "自有域名",
+    placeholder: "例如 castroymeirelles.com.uy",
+    help: "把你的域名（以及 www.）的 A 记录指向平台的 IP 地址。首次访问时会自动签发 HTTPS 证书。留空则只使用平台地址。",
+  },
 };
 
 const zhTW: Dict = {
@@ -1033,6 +1043,11 @@ const zhTW: Dict = {
     amenitiesDesc: "經紀人可以為房源勾選的配套設施。",
     usStyleDeal: "紐約交易概念",
     usStyleDealDesc: "顯示董事會資料階段、MLS 編號、平方英尺和 Zillow 匯入。烏拉圭預設關閉。",
+  },
+  domain: {
+    label: "自有網域",
+    placeholder: "例如 castroymeirelles.com.uy",
+    help: "把你的網域（以及 www.）的 A 記錄指向平台的 IP 位址。首次造訪時會自動簽發 HTTPS 憑證。留空則只使用平台網址。",
   },
 };
 
@@ -1669,6 +1684,11 @@ const es: Dict = {
     amenitiesDesc: "Las comodidades que los agentes pueden marcar en una propiedad.",
     usStyleDeal: "Conceptos de Nueva York",
     usStyleDealDesc: "Muestra la etapa de documentación del edificio, el número MLS, los pies cuadrados y la importación desde Zillow. Apagado para Uruguay.",
+  },
+  domain: {
+    label: "Dominio propio",
+    placeholder: "Ej.: castroymeirelles.com.uy",
+    help: "Apuntá un registro A de tu dominio (y de www.) a la IP de la plataforma. El certificado HTTPS se emite solo en la primera visita. Dejalo vacío para usar solo la dirección de la plataforma.",
   },
 };
 

@@ -78,6 +78,19 @@ The project uses a **4-segment version** (`major.minor.patch.build`, e.g. `1.0.1
 7. 在 `CHANGELOG.md` 该版本下补一行“已部署，线上已确认”（可以放进下一个 PR）。
    Add a line “deployed, confirmed live” under that version in `CHANGELOG.md` (may go in the next PR).
 
+## Fork Uruguay: deploy en el Droplet (fase F4)
+
+En el fork, empujar el tag `vX.Y.Z.W` dispara el workflow **Release** (`.github/workflows/release.yml`):
+
+1. revisa que el tag coincida con `appVersion`;
+2. publica las imágenes en GHCR;
+3. hace el deploy por SSH con `deploy/deploy.sh`;
+4. verifica `GET /api/health`.
+
+Si la versión nueva no responde, `deploy.sh` **vuelve sola a la anterior** y el workflow queda en rojo.
+Volver a mano: en el servidor, `cd /opt/inmo-uy && ./deploy.sh vANTERIOR`. Alta del servidor:
+`guides/droplet-setup.md`; backups: `guides/restore.md`. Render y Vercel siguen funcionando para quien los use.
+
 ## 出问题时回滚 / Rolling back
 
 - **前端**：在 Vercel 控制台把上一次部署设为 Production（Promote）。

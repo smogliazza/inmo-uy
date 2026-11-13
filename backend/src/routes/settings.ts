@@ -100,7 +100,7 @@ router.get('/organization', async (req: AuthRequest, res) => {
         if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
         const org = await prisma.organization.findUnique({
             where:  { id: req.user.orgId },
-            select: { id: true, name: true, website: true, address: true, phone: true, licenseNumber: true, logoUrl: true, brandColor: true, subscription: true, defaultCommissionRate: true, defaultFirmSplit: true, slug: true, country: true, timezone: true, defaultCurrency: true, preferredLanguage: true },
+            select: { id: true, name: true, website: true, address: true, phone: true, licenseNumber: true, logoUrl: true, brandColor: true, subscription: true, defaultCommissionRate: true, defaultFirmSplit: true, slug: true, country: true, timezone: true, defaultCurrency: true, preferredLanguage: true, customDomain: true },
         });
         if (!org) return res.status(404).json({ error: 'Organization not found' });
         const seats = await getSeatUsage(req.user.orgId);
@@ -141,6 +141,21 @@ router.patch('/organization', authorizeRole(ADMIN_ROLES), async (req: AuthReques
         if (req.body.defaultCurrency !== undefined) {
             if (!(CURRENCIES as readonly string[]).includes(req.body.defaultCurrency)) return res.status(400).json({ error: `defaultCurrency must be one of: ${CURRENCIES.join(', ')}` });
             loc.defaultCurrency = req.body.defaultCurrency;
+        }
+        // The brokerage's own domain (spec 3.2): HTTPS is issued for it once its DNS points to the server
+        if (req.body.customDomain !== undefined) {
+            const raw = req.body.customDomain === null ? '' : String(req.body.customDomain).trim().toLowerCase()
+                .replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '').replace(/\.$/, '');
+            if (raw === '') {
+                loc.customDomain = null as any;
+            } else {
+                if (!/^(?=.{4,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/.test(raw)) return res.status(400).json({ error: 'Invalid domain (e.g. castroymeirelles.com.uy)' });
+                const base = (process.env.PLATFORM_DOMAIN || '').trim().toLowerCase();
+                if (base && (raw === base || raw.endsWith(`.${base}`))) return res.status(400).json({ error: 'That domain belongs to the platform; use your own domain' });
+                const taken = await prisma.organization.findFirst({ where: { customDomain: raw, NOT: { id: req.user.orgId } }, select: { id: true } });
+                if (taken) return res.status(409).json({ error: 'Another brokerage already uses this domain' });
+                loc.customDomain = raw;
+            }
         }
         if (req.body.preferredLanguage !== undefined) {
             if (!['es', 'en', 'zh-CN', 'zh-TW'].includes(req.body.preferredLanguage)) return res.status(400).json({ error: 'Unsupported language' });
@@ -209,7 +224,7 @@ router.patch('/organization', authorizeRole(ADMIN_ROLES), async (req: AuthReques
             select: {
                 id: true, name: true, website: true, address: true, phone: true, licenseNumber: true, logoUrl: true,
                 slug: true, brandColor: true, subscription: true, defaultCommissionRate: true, defaultFirmSplit: true,
-                country: true, timezone: true, defaultCurrency: true, preferredLanguage: true,
+                country: true, timezone: true, defaultCurrency: true, preferredLanguage: true, customDomain: true,
             },
         });
         if (Object.keys(loc).length) clearOrgLocaleCache(req.user.orgId);

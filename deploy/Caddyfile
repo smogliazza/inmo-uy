@@ -1,0 +1,56 @@
+# Caddy (spec 12.2). Copied to /opt/inmo-uy/Caddyfile on the server.
+# - app.{PLATFORM_DOMAIN}: the panel (cookies stay on this host, apart from the brokerages' sites).
+# - Any other host: a brokerage site ({slug}.{PLATFORM_DOMAIN} or its own domain). Certificates are issued on
+#   demand, and only after the API confirms the host belongs to an active brokerage (domain-check), so nobody
+#   can make this server request certificates for domains it does not serve.
+{
+	email {$ACME_EMAIL}
+	on_demand_tls {
+		ask http://api:4000/api/public/domain-check
+	}
+}
+
+(common) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
+
+app.{$PLATFORM_DOMAIN} {
+	import common
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}
+
+https:// {
+	tls {
+		on_demand
+	}
+	import common
+	# Brokerage sites only reach the public API (listings, inquiries, uploads of public photos)
+	handle /api/public/* {
+		reverse_proxy api:4000
+	}
+	handle /api/properties/public* {
+		reverse_proxy api:4000
+	}
+	handle /api/uploads/public/* {
+		reverse_proxy api:4000
+	}
+	handle /api/* {
+		respond "Not found" 404
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}
+
+# Plain HTTP: Caddy answers ACME challenges and redirects everything else to HTTPS
