@@ -10,6 +10,8 @@
  * (anything invalid is rejected with a message the settings page can show).
  */
 
+import { ALL_PROPERTY_TYPES, PROPERTY_TYPES_UY, AMENITIES_UY, LEAD_SOURCES_UY } from './catalogs';
+
 // ─── Option lists ────────────────────────────────────────────────────────────
 
 export const CLIENT_REQUIRED_FIELD_OPTIONS = ['phone', 'email', 'budget', 'source'] as const;
@@ -44,6 +46,9 @@ export interface OrgPolicies {
         photosRequiredToActivate: number;           // 0 = none; photos needed before a listing can be Active
         maxPhotosPerListing: number;                // 0 = no limit
         descriptionMaxChars: number;                // 0 = no limit
+        propertyTypes: string[];                    // catalog shown in forms and filters (default: Uruguay)
+        amenities: string[];                        // amenity catalog (default: Uruguay)
+        usStyleDeal: boolean;                       // show New York deal concepts (board package, MLS #, StreetEasy…)
     };
     finance: {
         showAgentGross: boolean;                    // false hides other agents' production in the leaderboard
@@ -83,14 +88,19 @@ export interface UserPreferences {
     };
 }
 
-export const DEFAULT_LEAD_SOURCES = [
+// Uruguay defaults (spec 5.4). The previous New York list is kept for reference: a brokerage can add any of them.
+export const LEGACY_LEAD_SOURCES = [
     'Referral', 'Website', 'Zillow', 'StreetEasy', 'Realtor.com',
     'Open House', 'Sign Call', 'Social Media', 'Past Client', 'Sphere',
 ];
+export const DEFAULT_LEAD_SOURCES = [...LEAD_SOURCES_UY];
 
 export const DEFAULT_ORG_POLICIES: OrgPolicies = {
     crm: { requiredFields: [], maxClientsPerAgent: 0, clientVisibility: 'own', duplicateCheck: true, leadSources: DEFAULT_LEAD_SOURCES },
-    properties: { whoCanCreate: 'ALL_STAFF', requiredFields: [], photosRequiredToActivate: 0, maxPhotosPerListing: 0, descriptionMaxChars: 0 },
+    properties: {
+        whoCanCreate: 'ALL_STAFF', requiredFields: [], photosRequiredToActivate: 0, maxPhotosPerListing: 0, descriptionMaxChars: 0,
+        propertyTypes: [...PROPERTY_TYPES_UY], amenities: [...AMENITIES_UY], usStyleDeal: false,
+    },
     finance: { showAgentGross: true, fiscalYearStartMonth: 1 },
     appointments: { workdayStart: '09:00', workdayEnd: '18:00', showWeekends: true, preventDoubleBooking: false, bufferMinutes: 0 },
     documents: { allowedFormats: ['pdf', 'word', 'image'], maxFileSizeMb: 20 },
@@ -141,23 +151,25 @@ const timeOfDay = (label: string): Parser<string> => v => {
     return v;
 };
 
-const sourceList: Parser<string[]> = v => {
-    if (!Array.isArray(v)) throw new Error('Lead sources must be a list');
+// A free list of short texts (trimmed, deduplicated case-insensitively)
+const textList = (label: string, maxItems: number, maxLen: number): Parser<string[]> => v => {
+    if (!Array.isArray(v)) throw new Error(`${label} must be a list`);
     const seen = new Set<string>();
     const out: string[] = [];
     for (const item of v) {
-        if (typeof item !== 'string') throw new Error('Lead sources must be text');
+        if (typeof item !== 'string') throw new Error(`${label} must be text`);
         const s = item.trim();
         if (!s) continue;
-        if (s.length > 40) throw new Error('A lead source can have at most 40 characters');
+        if (s.length > maxLen) throw new Error(`Each entry in ${label} can have at most ${maxLen} characters`);
         if (seen.has(s.toLowerCase())) continue;
         seen.add(s.toLowerCase());
         out.push(s);
     }
-    if (out.length === 0) throw new Error('Add at least one lead source');
-    if (out.length > 30) throw new Error('At most 30 lead sources');
+    if (out.length === 0) throw new Error(`${label}: add at least one entry`);
+    if (out.length > maxItems) throw new Error(`${label}: at most ${maxItems} entries`);
     return out;
 };
+const sourceList = textList('Lead sources', 30, 40);
 
 const ORG_FIELDS: { [S in keyof OrgPolicies]: { [K in keyof OrgPolicies[S]]: Parser<OrgPolicies[S][K]> } } = {
     crm: {
@@ -173,6 +185,9 @@ const ORG_FIELDS: { [S in keyof OrgPolicies]: { [K in keyof OrgPolicies[S]]: Par
         photosRequiredToActivate: intRange('Photos required before a listing goes Active', 1, 30, true),
         maxPhotosPerListing: intRange('Max photos per listing', 1, 200, true),
         descriptionMaxChars: intRange('Max description length', 100, 10000, true),
+        propertyTypes: subsetOf('Property types', ALL_PROPERTY_TYPES, false),
+        amenities: textList('Amenities', 60, 40),
+        usStyleDeal: bool('New York deal concepts'),
     },
     finance: {
         showAgentGross: bool('Show agent production'),

@@ -81,6 +81,12 @@ el alcance de cada fase. Si algo de este archivo la contradice, avisá en el PR.
   textos en `extra.ts` (`modules.names` / `modules.descs`) + pruebas en las dos corridas de smoke
   (`SMOKE_MODULES=all-on` y `optional-off`). El asistente IA además exige `AI_ASSISTANT_ENABLED=true` /
   `NEXT_PUBLIC_AI_ASSISTANT_ENABLED=true` (flags heredados).
+- **Localización (es-UY).** Textos de interfaz: `extra.ts` / `translations.ts` (voseo en mensajes, glosario de la
+  especificación 7.2). Textos que escribe el servidor (avisos, tareas automáticas, historial, emails):
+  `backend/src/lib/messages.ts`, en el idioma de la inmobiliaria (`orgLocale(orgId)`), con fechas en su zona
+  horaria. Números y fechas en el frontend con `fmtLocale()` (`lib/format.ts`), nunca `toLocaleString()` a secas.
+  Teléfonos: `normalizePhoneUY` al guardar y `formatPhoneUY` al mostrar. Ciudades: `matchPlaceName`. Catálogos
+  en `backend/src/lib/catalogs.ts` (espejo en `frontend/src/lib/catalogs.ts`).
 - Priorizar lo que resuelve problemas concretos de inmobiliarias y agentes, sin agregar peso innecesario.
 - El repo es **público** y su historial no se puede borrar de verdad: nunca commitear secretos, cadenas de
   conexión ni contraseñas, ni documentos (Word u otros binarios) que los contengan. Los pendientes que
@@ -120,8 +126,8 @@ el alcance de cada fase. Si algo de este archivo la contradice, avisá en el PR.
      (`luxury`, `modern`, `youth`, `chinese`, `cyberpunk`) se leen de `frontend/src/lib/i18n/translations.ts` /
      `extra.ts` y `ThemeContext.tsx`, nunca se escriben a mano en otras páginas.
    - Cada ruta pública y el `Header.tsx` interno muestran el selector de idioma en todos los tamaños de
-     pantalla (no ocultarlo con `hidden sm:block`). Desde la fase F2 los idiomas visibles se controlan con
-     `SUPPORTED_LOCALES`.
+     pantalla (no ocultarlo con `hidden sm:block`). Los idiomas que ofrece se controlan con
+     `NEXT_PUBLIC_SUPPORTED_LOCALES` (lista `SUPPORTED_LANGUAGES` de `I18nContext.tsx`; no escribir listas a mano).
    - Antes de commitear cambios de interfaz, marca o textos: `cd frontend && npm run audit:i18n` (cobertura de
      páginas al 100%) y `git grep` para confirmar que no quedan marcas o precios viejos.
 

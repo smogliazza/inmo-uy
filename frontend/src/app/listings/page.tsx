@@ -8,6 +8,7 @@ import { parseCsv, mapPropertyCsvRows, downloadCsvTemplate } from "@/lib/csv";
 import { useAiAssistantEnabled } from "@/lib/modules";
 import { api, uploadFile } from "@/lib/api";
 import { useSettings } from "@/lib/settings/useSettings";
+import { DEPARTMENTS_UY } from "@/lib/catalogs";
 
 export default function ListingsPage() {
   const { t } = useI18n();
@@ -33,8 +34,8 @@ export default function ListingsPage() {
   const [isImporting, setIsImporting] = React.useState(false);
   const [formData, setFormData] = React.useState({
     address: "",
-    city: "New York",
-    state: "NY",
+    city: "",
+    state: "",
     zip: "",
     price: "",
     beds: "",
@@ -141,7 +142,7 @@ export default function ListingsPage() {
 
   // A blank form. New listings start Coming Soon when the brokerage wants photos before a listing goes Active.
   const blankForm = () => ({
-    address: "", city: "New York", state: "NY", zip: "", price: "", beds: "", baths: "", sqft: "",
+    address: "", city: "", state: "", zip: "", price: "", beds: "", baths: "", sqft: "",
     status: photoRuleActive ? "COMING_SOON" : preferences.properties.defaultStatus,
     propertyType: "", neighborhood: "", yearBuilt: "", description: "",
   });
@@ -191,7 +192,7 @@ export default function ListingsPage() {
 
   const handleZillowAutofill = async (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!zillowId) { toast.error("Please enter a Zillow Property ID (zpid)."); return; }
+    if (!zillowId) { toast.error(X.catalog.zillowMissing); return; }
     
     setIsZillowLoading(true);
     try {
@@ -217,11 +218,11 @@ export default function ListingsPage() {
         }));
         // alert(`Autofilled data from Zillow for property ID: ${zillowId}`);
       } else {
-        toast.error("Failed to fetch property details from Zillow.");
+        toast.error(X.catalog.zillowFailed);
       }
     } catch (error) {
       console.error(error);
-      toast.error("Network error. Could not reach Zillow integration.");
+      toast.error(X.catalog.networkError);
     } finally {
       setIsZillowLoading(false);
     }
@@ -574,17 +575,18 @@ export default function ListingsPage() {
               className="p-8 overflow-y-auto space-y-6"
             >
               
-              <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-6 mb-8 flex flex-col md:flex-row gap-4 items-end animate-in fade-in duration-500">
+              {/* Zillow import: a New York tool, shown only with the brokerage's "New York concepts" setting */}
+              {policies.properties.usStyleDeal && <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-6 mb-8 flex flex-col md:flex-row gap-4 items-end animate-in fade-in duration-500">
                 <div className="flex-1 w-full">
                   <label className="block font-sans text-sm font-semibold text-blue-900/60 mb-2">
-                    Auto-fill from Zillow (ZPID)
+                    {X.catalog.zillowTitle}
                   </label>
                   <input
                     type="text"
                     value={zillowId}
                     onChange={(e) => setZillowId(e.target.value)}
                     className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl text-base text-blue-900 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition-all placeholder:text-blue-900/30 shadow-sm"
-                    placeholder="e.g. 20790691"
+                    placeholder={X.catalog.zillowPlaceholder}
                   />
                 </div>
                 <button
@@ -593,9 +595,9 @@ export default function ListingsPage() {
                   type="button"
                   className="w-full md:w-auto px-6 py-3 bg-blue-600 text-white rounded-xl text-base font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-md whitespace-nowrap flex-shrink-0"
                 >
-                  {isZillowLoading ? "Fetching..." : "Auto-fill Data"}
+                  {isZillowLoading ? X.catalog.zillowLoading : X.catalog.zillowBtn}
                 </button>
-              </div>
+              </div>}
 
               <div>
                 <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
@@ -608,7 +610,7 @@ export default function ListingsPage() {
                   onChange={handleChange}
                   type="text"
                   className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-foreground/30 shadow-sm"
-                  placeholder="123 Example St, Apt 4"
+                  placeholder={X.labels.addressPlaceholder}
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -629,14 +631,17 @@ export default function ListingsPage() {
                   <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
                     {t.listings.modal.state}
                   </label>
-                  <input
-                    required
+                  <select
                     name="state"
                     value={formData.state}
                     onChange={handleChange}
-                    type="text"
-                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm"
-                  />
+                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all appearance-none cursor-pointer shadow-sm"
+                  >
+                    <option value="">{X.catalog.choose}</option>
+                    {[...DEPARTMENTS_UY, ...(formData.state && !(DEPARTMENTS_UY as readonly string[]).includes(formData.state) ? [formData.state] : [])].map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
@@ -761,8 +766,9 @@ export default function ListingsPage() {
                     className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all appearance-none cursor-pointer shadow-sm"
                   >
                     <option value="">—</option>
-                    {["CONDO", "COOP", "TOWNHOUSE", "SINGLE_FAMILY", "MULTI_FAMILY", "COMMERCIAL", "LAND"].map((v) => (
-                      <option key={v} value={v}>{v.replace("_", " ")}</option>
+                    {/* The brokerage's catalog (Settings > Properties); a legacy value already saved stays selectable */}
+                    {[...policies.properties.propertyTypes, ...(formData.propertyType && !policies.properties.propertyTypes.includes(formData.propertyType) ? [formData.propertyType] : [])].map((v) => (
+                      <option key={v} value={v}>{(X.catalog.propertyTypes as Record<string, string>)[v] ?? v.replace("_", " ")}</option>
                     ))}
                   </select>
                 </div>
@@ -865,7 +871,7 @@ export default function ListingsPage() {
               </label>
               <button
                 type="button"
-                onClick={() => downloadCsvTemplate("listings-template.csv", "address,city,state,zip,price,beds,baths,sqft,status,propertyType,mlsNumber\n432 Park Ave Apt 82A,New York,NY,10022,4250000,3,3.5,2850,ACTIVE,CONDO,MLS-90012")}
+                onClick={() => downloadCsvTemplate("listings-template.csv", "address,city,state,zip,price,beds,baths,sqft,status,propertyType\nUruguay 1234,Salto,Salto,50000,290000,4,2,180,ACTIVE,CASA")}
                 className="px-3 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground/70 hover:text-foreground"
               >
                 {X.leadRouting.csvDownloadTemplate}

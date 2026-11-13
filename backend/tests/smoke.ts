@@ -281,7 +281,7 @@ async function main() {
         const r = await call('POST', `/api/properties/public/${p2.body.id}/inquiry`, undefined, { name: 'Web Lead', email: `lead-${run}@example.com`, message: 'Is it available?' });
         assert.equal(r.status, 201, JSON.stringify(r.body));
         const leads = await call('GET', '/api/clients?temperature=HOT', a);
-        assert.ok(leads.body.data.some((c: any) => c.source === 'Website'));
+        assert.ok(leads.body.data.some((c: any) => c.source === 'Sitio web'));
         const notes = await call('GET', '/api/notifications', a);
         assert.ok(notes.body.notifications.some((n: any) => n.type === 'NEW_CLIENT'));
     });
@@ -872,7 +872,7 @@ async function main() {
         assert.equal(d.finance.fiscalYearStartMonth, 1);
         assert.equal(d.appointments.preventDoubleBooking, false);
         assert.equal(d.documents.maxFileSizeMb, 20);
-        assert.ok(d.crm.leadSources.includes('Referral'));
+        assert.ok(d.crm.leadSources.includes('WhatsApp') && d.crm.leadSources.includes('InfoCasas'), 'Uruguay lead sources by default');
 
         assert.equal((await call('GET', '/api/settings/policies')).status, 401, 'anonymous cannot read policies');
         assert.equal((await call('PATCH', '/api/settings/policies', agent.token, { crm: { maxClientsPerAgent: 5 } })).status, 403, 'agents cannot change policies');
@@ -1156,6 +1156,54 @@ async function main() {
         assert.equal((await call('PATCH', '/api/settings/policies', owner, { finance: { fiscalYearStartMonth: now.getMonth() + 1 } })).status, 200);
         const fy = await call('GET', '/api/finance/metrics', agent.token);
         assert.equal(fy.body.ytdGross, 3000, 'only commissions paid since the fiscal year start are counted');
+    });
+
+    await step('Uruguay localization: brokerage defaults, catalogs, phones in E.164, city names', async () => {
+        const owner = await register('uyloc');
+        const org = await call('GET', '/api/settings/organization', owner);
+        assert.equal(org.status, 200);
+        assert.equal(org.body.country, 'UY');
+        assert.equal(org.body.timezone, 'America/Montevideo');
+        assert.equal(org.body.defaultCurrency, 'USD');
+        assert.equal(org.body.preferredLanguage, 'es');
+        const prof = await call('GET', '/api/settings/profile', owner);
+        assert.equal(prof.body.timezone, 'America/Montevideo');
+        assert.equal((await call('PATCH', '/api/settings/organization', owner, { timezone: 'Mars/Olympus' })).status, 400);
+        assert.equal((await call('PATCH', '/api/settings/organization', owner, { defaultCurrency: 'EUR' })).status, 400);
+        const loc = await call('PATCH', '/api/settings/organization', owner, { defaultCurrency: 'UYU', phone: '4733 1234' });
+        assert.equal(loc.status, 200, JSON.stringify(loc.body));
+        assert.equal(loc.body.defaultCurrency, 'UYU');
+        assert.equal(loc.body.phone, '+59847331234', 'landline in E.164');
+
+        // Catalogs: fixed lists + editable defaults in the policies
+        const cat = await call('GET', '/api/settings/catalogs', owner);
+        assert.equal(cat.body.departments.length, 19);
+        assert.deepEqual(cat.body.currencies, ['USD', 'UYU', 'UI', 'UR']);
+        const pol = (await call('GET', '/api/settings/policies', owner)).body.policies;
+        assert.ok(pol.properties.propertyTypes.includes('CAMPO_CHACRA') && !pol.properties.propertyTypes.includes('COOP'));
+        assert.ok(pol.properties.amenities.includes('parrillero'));
+        assert.equal(pol.properties.usStyleDeal, false);
+        assert.equal((await call('PATCH', '/api/settings/policies', owner, { properties: { propertyTypes: ['CASA', 'COOP'] } })).status, 200, 'New York types stay valid');
+        assert.equal((await call('PATCH', '/api/settings/policies', owner, { properties: { propertyTypes: ['CASTILLO'] } })).status, 400);
+        assert.equal((await call('PATCH', '/api/settings/policies', owner, { properties: { propertyTypes: [] } })).status, 400);
+
+        // Phones: Uruguayan numbers are stored in E.164; anything else as typed
+        const c1 = await call('POST', '/api/clients', owner, { firstName: 'Ana', phone: '099 991 525' });
+        assert.equal(c1.status, 201, JSON.stringify(c1.body));
+        assert.equal(c1.body.phone, '+59899991525');
+        const dup = await call('POST', '/api/clients', owner, { firstName: 'Ana', phone: '+598 99 991 525' });
+        assert.equal(dup.status, 409, 'the same number written differently is a duplicate');
+        const c2 = await call('POST', '/api/clients', owner, { firstName: 'Bob', phone: '+1 212 555 0100' });
+        assert.equal(c2.body.phone, '+1 212 555 0100', 'foreign numbers are kept as typed');
+
+        // City names: trimmed, capitalized and matched to the existing spelling regardless of accents
+        const p1 = await call('POST', '/api/properties', owner, { address: 'Calle 1', city: '  termas  DEL daymán ', state: 'Salto', zip: '50000', price: 1, beds: 1, baths: 1 });
+        assert.equal(p1.status, 201, JSON.stringify(p1.body));
+        assert.equal(p1.body.city, 'Termas del Daymán');
+        const p2 = await call('POST', '/api/properties', owner, { address: 'Calle 2', city: 'Termas del Dayman', state: 'Salto', zip: '50000', price: 1, beds: 1, baths: 1 });
+        assert.equal(p2.body.city, 'Termas del Daymán', 'same place, existing spelling reused');
+        const upd = await call('PATCH', `/api/properties/${p2.body.id}`, owner, { city: 'SALTO' });
+        assert.equal(upd.body.city, 'Salto');
     });
 
     await step('module system: list, permissions, per-brokerage override, dependencies, isolation, audit', async () => {

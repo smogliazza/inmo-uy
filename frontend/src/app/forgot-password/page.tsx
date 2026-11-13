@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useI18n } from '@/lib/i18n/I18nContext';
+import { useI18n, SUPPORTED_LANGUAGES } from '@/lib/i18n/I18nContext';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -49,10 +49,7 @@ export default function ForgotPasswordPage() {
               onChange={(e) => setLanguage(e.target.value as any)}
               className="bg-transparent border-b border-border text-foreground/60 outline-none text-xs pb-0.5 cursor-pointer hover:border-primary hover:text-foreground transition-colors focus:border-primary"
             >
-              <option value="en"    className="bg-surface">English</option>
-              <option value="zh-CN" className="bg-surface">中文（简体）</option>
-              <option value="zh-TW" className="bg-surface">中文（繁體）</option>
-              <option value="es"    className="bg-surface">Español</option>
+              {SUPPORTED_LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-surface">{l.label}</option>)}
             </select>
           </div>
         </div>

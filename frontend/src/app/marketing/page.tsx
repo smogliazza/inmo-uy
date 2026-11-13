@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import AiAssistantPanel from "@/components/ai/AiAssistantPanel";
 import { aiLanguage, useExtra } from "@/lib/i18n/extra";
 import { useAiAssistantEnabled } from "@/lib/modules";
+import { fmtLocale } from "@/lib/format";
 
 interface MarketingTask {
   id: string;
@@ -383,7 +384,7 @@ export default function MarketingPage() {
                           {task.title}
                         </p>
                         <p className="font-sans text-sm text-foreground/50 mt-1">
-                          {new Date(task.createdAt).toLocaleDateString()}
+                          {new Date(task.createdAt).toLocaleDateString(fmtLocale())}
                         </p>
                       </div>
                     </div>

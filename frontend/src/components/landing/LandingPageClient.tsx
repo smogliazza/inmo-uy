@@ -2,8 +2,9 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useI18n } from "@/lib/i18n/I18nContext";
+import { useI18n, SUPPORTED_LANGUAGES } from "@/lib/i18n/I18nContext";
 import { useTheme, ThemeName } from "@/lib/theme/ThemeContext";
+import { useInstallationModules } from "@/lib/modules";
 import { useAuth } from "@/lib/auth/AuthContext";
 
 const FEATURED_SLUG = process.env.NEXT_PUBLIC_FEATURED_BROKERAGE_SLUG || "";
@@ -431,55 +432,55 @@ const COPY: Record<string, LandingCopy> = {
   },
   es: {
     nav: {
-      browseListings: "Ver Propiedades",
-      dashboard: "Ir al Panel →",
-      signIn: "Iniciar Sesión",
-      getStarted: "Comenzar Gratis",
+      browseListings: "Ver propiedades",
+      dashboard: "Ir al panel →",
+      signIn: "Ingresar",
+      getStarted: "Crear cuenta",
     },
     hero: {
-      badge: "Diseñado para Agencias Inmobiliarias Modernas",
-      titleLine1: "El CRM Creado para",
-      titleHighlight: "Agentes Inmobiliarios",
+      badge: "Pensado para inmobiliarias de Uruguay",
+      titleLine1: "Tu inmobiliaria,",
+      titleHighlight: "en un solo lugar",
       subtitle:
-        "Gestione clientes, propiedades, transacciones y comisiones en un solo lugar. Con asignación automática de prospectos e importación CSV.",
-      ctaPrimary: "Comenzar Gratis → Sin tarjeta",
-      ctaDashboard: "Entrar al Panel CRM →",
-      ctaBrowse: "Ver Propiedades",
-      note: "Plan gratuito disponible · Sin tarjeta de crédito · 4 Idiomas (EN / 简 / 繁 / ES)",
+        "Sitio web con mapa y filtros instantáneos, interesados, visitas, documentos y alquileres. Cada inmobiliaria con su dominio, su sitio y sus datos.",
+      ctaPrimary: "Crear cuenta →",
+      ctaDashboard: "Entrar al panel →",
+      ctaBrowse: "Ver propiedades",
+      note: "En español · Precios en US$ y $ · Campos en hectáreas",
     },
-    featuresTitle: "Todo lo que una Agencia Moderna Necesita",
+    featuresTitle: "Todo lo que necesita una inmobiliaria",
     featuresSubtitle:
-      "Desde el primer prospecto hasta el pago de comisiones: gestione todo su negocio sin cambiar de pestaña.",
+      "Desde la primera consulta hasta el contrato firmado, sin cambiar de pestaña.",
     features: [
       {
         icon: "👥",
-        title: "CRM y Embudo de Clientes",
-        desc: "Siga a cada cliente desde el primer contacto hasta el cierre con asignación automática e historial de actividades.",
+        title: "Interesados y clientes",
+        desc: "Seguí a cada interesado desde la primera consulta, con reparto automático entre agentes e historial de actividad.",
       },
       {
         icon: "🏠",
-        title: "Gestión de Propiedades",
-        desc: "Suba fotos directamente, personalice el enlace público de su agencia e importe propiedades por lote vía CSV.",
+        title: "Propiedades",
+        desc: "Subí fotos, publicá en tu sitio con tu propio enlace e importá tu cartera desde un CSV.",
       },
       {
-        icon: "📊",
-        title: "Flujo de Transacciones",
-        desc: "Tablero Kanban interactivo desde Revisión de Oferta → En Contrato → Listo para Cerrar → Cerrado.",
+        icon: "🗺️",
+        title: "Sitio web con mapa",
+        desc: "Filtros instantáneos, mapa con zonas aproximadas y botón de WhatsApp en cada propiedad.",
       },
       {
-        icon: "💰",
-        title: "Control de Comisiones",
-        desc: "Cálculo automático de comisión bruta/neta, división con la agencia, aprobación de pagos y tabla de líderes.",
+        icon: "🔑",
+        title: "Alquileres",
+        desc: "Contratos, cobros mensuales, vencimientos y liquidaciones a propietarios, con totales separados por moneda.",
       },
       {
-        icon: "✨",
-        title: "Copiloto de Marketing IA",
-        desc: "Genere descripciones de propiedades, publicaciones sociales y correos en segundos en múltiples idiomas.",
+        icon: "📄",
+        title: "Documentos",
+        desc: "Contratos y documentos de identidad privados, con enlaces de acceso que vencen.",
       },
       {
         icon: "📅",
-        title: "Citas y Calendario",
-        desc: "Programe visitas e inspecciones con recordatorios automáticos por correo electrónico.",
+        title: "Visitas y agenda",
+        desc: "Agendá visitas con recordatorios automáticos por email.",
       },
     ],
     pricingTitle: "Precios Simples y Transparentes",
@@ -522,28 +523,28 @@ const COPY: Record<string, LandingCopy> = {
         ],
       },
     ],
-    faqTitle: "Preguntas Frecuentes",
+    faqTitle: "Preguntas frecuentes",
     faqs: [
       {
-        q: "¿Qué es Real Estate CRM?",
-        a: "Es una plataforma CRM en la nube diseñada específicamente para agentes y agencias inmobiliarias para gestionar clientes, propiedades, cierres y comisiones en un solo lugar.",
+        q: "¿Qué es esta plataforma?",
+        a: "Es un sistema en la nube para inmobiliarias: sitio web propio, CRM de interesados, visitas, documentos y gestión de alquileres, con los datos de cada inmobiliaria separados.",
       },
       {
-        q: "¿Hay un plan gratuito?",
-        a: "Sí. El plan Core es gratuito para siempre e incluye hasta 5 propiedades activas y 50 clientes sin necesidad de tarjeta de crédito.",
+        q: "¿Puedo traer mis propiedades desde inmobiliariaya?",
+        a: "Sí. Tenemos un migrador que importa las propiedades públicas, con fotos y datos, y deja un informe para revisar.",
       },
       {
-        q: "¿Cómo cambio el idioma de la plataforma?",
-        a: "Puede cambiar entre Español, Inglés, Chino Simplificado (简体中文) y Chino Tradicional (繁體中文) en cualquier momento desde el selector de idioma en la barra superior.",
+        q: "¿Puedo cambiar el idioma?",
+        a: "Sí, desde el selector de idioma de la barra superior.",
       },
     ],
     cta: {
-      title: "¿Listo para cerrar más ventas?",
-      subtitle: "Impulse su equipo inmobiliario hoy mismo. Gratis para empezar.",
-      button: "Crear Cuenta Gratis →",
+      title: "¿Querés probarla con tu inmobiliaria?",
+      subtitle: "Creá tu cuenta y empezá a cargar tus propiedades.",
+      button: "Crear cuenta →",
     },
     footer: {
-      tagline: "Plataforma CRM para Agencias Inmobiliarias",
+      tagline: "Plataforma para inmobiliarias de Uruguay",
       rights: "Todos los derechos reservados.",
     },
   },
@@ -553,6 +554,8 @@ export default function LandingPageClient() {
   const { language, setLanguage, t } = useI18n();
   const { theme, setTheme } = useTheme();
   const { token } = useAuth();
+  // Plans and prices only when the platform charges through Stripe (billing module); otherwise billing happens outside
+  const installModules = useInstallationModules();
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
   const [isLangOpen, setIsLangOpen] = useState(false);
@@ -683,12 +686,7 @@ export default function LandingPageClient() {
               </button>
               {isLangOpen && (
                 <div className="absolute top-full right-0 mt-2 w-40 bg-surface rounded-xl shadow-lg border border-border overflow-hidden z-50">
-                  {[
-                    { code: "en", label: "English" },
-                    { code: "zh-CN", label: "简体中文" },
-                    { code: "zh-TW", label: "繁體中文" },
-                    { code: "es", label: "Español" },
-                  ].map((l) => (
+                  {SUPPORTED_LANGUAGES.map((l) => (
                     <button
                       key={l.code}
                       onClick={() => {
@@ -804,7 +802,7 @@ export default function LandingPageClient() {
       </section>
 
       {/* ── Pricing (Synced with t.upgrade: Core $0 / Pro $39 mo, $390 yr / Elite $79 mo, $790 yr) ── */}
-      <section className="max-w-6xl mx-auto px-6 py-20" id="pricing">
+      {installModules?.billing && <section className="max-w-6xl mx-auto px-6 py-20" id="pricing">
         <h2 className="text-2xl sm:text-3xl font-bold text-center text-foreground mb-3">{U.title}</h2>
         <p className="text-center text-foreground/50 mb-8 max-w-2xl mx-auto">{U.subtitle}</p>
 
@@ -914,7 +912,7 @@ export default function LandingPageClient() {
             </div>
           ))}
         </div>
-      </section>
+      </section>}
 
       {/* ── FAQ ── */}
       <section className="bg-surface border-t border-border py-20" id="faq">

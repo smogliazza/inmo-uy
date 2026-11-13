@@ -15,6 +15,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { fmtLocale } from "@/lib/format";
 
 export default function FinancePage() {
   const { t } = useI18n();
@@ -235,10 +236,10 @@ export default function FinancePage() {
                   <div key={r.id} className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-sm font-semibold text-foreground truncate">
-                        {r.agent?.name || r.agent?.email} · ${Number(r.netPayout).toLocaleString()}
+                        {r.agent?.name || r.agent?.email} · ${Number(r.netPayout).toLocaleString(fmtLocale())}
                       </div>
                       <div className="text-xs text-foreground/50 truncate">
-                        {r.transaction?.property?.address || "—"} · Gross ${Number(r.grossAmount).toLocaleString()} · Firm {r.firmSplitPercent}%
+                        {r.transaction?.property?.address || "—"} · Gross ${Number(r.grossAmount).toLocaleString(fmtLocale())} · Firm {r.firmSplitPercent}%
                       </div>
                     </div>
                     {isOwn ? (
@@ -322,7 +323,7 @@ export default function FinancePage() {
                       {t.finance.grossCommission}
                     </span>
                     <span className="text-xl font-sans font-semibold text-foreground">
-                      ${commissions[selectedCommIndex].grossAmount.toLocaleString()}
+                      ${commissions[selectedCommIndex].grossAmount.toLocaleString(fmtLocale())}
                     </span>
                   </div>
                   <div className="text-xs font-sans text-foreground/50 mt-3 font-semibold border-t border-border/40 pt-3">
@@ -346,7 +347,7 @@ export default function FinancePage() {
                       {(
                         commissions[selectedCommIndex].grossAmount *
                         (commissions[selectedCommIndex].firmSplitPercent / 100)
-                      ).toLocaleString()}
+                      ).toLocaleString(fmtLocale())}
                     </span>
                   </div>
                 </div>
@@ -369,7 +370,7 @@ export default function FinancePage() {
                         {(
                           commissions[selectedCommIndex].grossAmount *
                           (commissions[selectedCommIndex].overridePercent / 100)
-                        ).toLocaleString()}
+                        ).toLocaleString(fmtLocale())}
                       </span>
                     </div>
                   </div>
@@ -388,7 +389,7 @@ export default function FinancePage() {
                       {t.finance.netPayout}
                     </span>
                     <span className="text-4xl lg:text-5xl font-sans font-bold tracking-tight text-primary">
-                      ${commissions[selectedCommIndex].netPayout.toLocaleString()}
+                      ${commissions[selectedCommIndex].netPayout.toLocaleString(fmtLocale())}
                     </span>
                   </div>
                   <div className="text-xs font-sans font-semibold uppercase text-primary/70 mt-6 border-t border-primary/20 pt-4 flex items-center justify-between gap-2">
@@ -397,7 +398,7 @@ export default function FinancePage() {
                         className={`w-2 h-2 rounded-full ${commissions[selectedCommIndex].status === "PAID" ? "bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)]" : "bg-primary/30"} flex-shrink-0`}
                       />
                       {commissions[selectedCommIndex].status === "PAID"
-                        ? `${t.finance.paidOn} ${new Date(commissions[selectedCommIndex].paidAt).toLocaleDateString()}`
+                        ? `${t.finance.paidOn} ${new Date(commissions[selectedCommIndex].paidAt).toLocaleDateString(fmtLocale())}`
                         : commissions[selectedCommIndex].status === "REQUESTED"
                         ? ((t.finance as any).payoutRequested || "Payout requested — awaiting approval")
                         : t.finance.pendingSettlement}
@@ -433,7 +434,7 @@ export default function FinancePage() {
             </p>
             <div className="flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-4 mt-2">
               <p className="font-sans tracking-tight text-5xl font-bold text-foreground">
-                ${metrics?.ytdGross?.toLocaleString() || 0}
+                ${metrics?.ytdGross?.toLocaleString(fmtLocale()) || 0}
               </p>
               <div className="pb-1.5 text-primary font-sans text-base font-semibold">
                 + {metrics?.topPercent || t.finance.topPercent}
@@ -467,7 +468,7 @@ export default function FinancePage() {
                 <span
                   className={`font-sans text-xl font-semibold ${leader.name === metrics?.userRank?.name ? "text-primary" : "text-foreground/80"}`}
                 >
-                  {leader.gross == null ? "—" : `$${leader.gross.toLocaleString()}`}
+                  {leader.gross == null ? "—" : `$${leader.gross.toLocaleString(fmtLocale())}`}
                 </span>
               </div>
             ))}
@@ -530,7 +531,7 @@ export default function FinancePage() {
                   fontSize: "12px",
                   fontWeight: "semibold"
                 }}
-                formatter={(value: any) => [`$${value.toLocaleString()}`, (t.finance as any).estimatedRevenue ?? "Estimated Revenue"]}
+                formatter={(value: any) => [`$${value.toLocaleString(fmtLocale())}`, (t.finance as any).estimatedRevenue ?? "Estimated Revenue"]}
               />
               <Area 
                 type="monotone" 

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/lib/i18n/I18nContext";
 import { dateInputToISO, isoToDateInput } from "@/lib/api";
+import { fmtLocale } from "@/lib/format";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const token = () => (typeof window !== "undefined" ? localStorage.getItem("token") || "" : "");
@@ -286,7 +287,7 @@ export default function TasksPage() {
                                                 <span className={`text-xs flex items-center gap-1 ${overdue ? "text-red-500 font-medium" : "text-foreground/40"}`}>
                                                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                                     {overdue ? `${T.overdueLabel} · ` : `${T.dueLabel} `}
-                                                    {new Date(task.dueDate).toLocaleDateString()}
+                                                    {new Date(task.dueDate).toLocaleDateString(fmtLocale())}
                                                 </span>
                                             )}
                                         </div>

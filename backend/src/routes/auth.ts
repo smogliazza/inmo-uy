@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { createPrismaClient } from '../lib/prisma';
 import rateLimit from 'express-rate-limit';
 import { sendEmail, passwordResetEmail, welcomeEmail } from '../lib/email';
+import { messages, toLang } from '../lib/messages';
 import { authenticateToken, AuthRequest, setAuthCookie, clearAuthCookie, invalidateAccount } from '../middleware/authMiddleware';
 import { passwordPolicyError, orgPasswordPolicy } from '../lib/passwordPolicy';
 import { getSeatUsage } from '../lib/seats';
@@ -169,7 +170,8 @@ router.post('/register', authLimiter, async (req, res) => {
             await (prisma as any).$executeRaw`UPDATE "User" SET "emailVerifyToken" = ${verifyToken} WHERE id = ${newUser.id}`;
             const appUrl = process.env.APP_URL || 'http://localhost:3000';
             const verifyUrl = `${appUrl}/verify-email?token=${verifyToken}`;
-            sendEmail({ to: newUser.email, subject: 'Verify your email', html: welcomeEmail(verifyUrl, newUser.name) }).catch(console.error);
+            const lang = toLang(newUser.preferredLanguage);
+            sendEmail({ to: newUser.email, subject: messages(lang).verifySubject, html: welcomeEmail(verifyUrl, newUser.name, lang, org.name) }).catch(console.error);
         } catch (emailErr) {
             console.error('Verification email / token setup failed (non-blocking):', emailErr);
         }
@@ -226,9 +228,9 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
 
         await sendEmail({
             to: email,
-            subject: 'Reset your password',
-            html: passwordResetEmail(resetUrl, user.name),
-            text: `Reset your password: ${resetUrl}`
+            subject: messages(toLang(user.preferredLanguage)).resetSubject,
+            html: passwordResetEmail(resetUrl, user.name, toLang(user.preferredLanguage)),
+            text: `${messages(toLang(user.preferredLanguage)).resetSubject}: ${resetUrl}`
         });
 
         res.status(200).json({ message: 'If that email exists, a reset link has been sent.' });
@@ -383,8 +385,8 @@ router.post('/resend-verification', authLimiter, async (req, res) => {
         const appUrl = process.env.APP_URL || 'http://localhost:3000';
         await sendEmail({
             to: user.email,
-            subject: 'Verify your email',
-            html: welcomeEmail(`${appUrl}/verify-email?token=${verifyToken}`, user.name),
+            subject: messages(toLang(user.preferredLanguage)).verifySubject,
+            html: welcomeEmail(`${appUrl}/verify-email?token=${verifyToken}`, user.name, toLang(user.preferredLanguage)),
         });
 
         res.status(200).json(okMsg);

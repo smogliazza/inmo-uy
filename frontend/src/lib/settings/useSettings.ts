@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { api } from "@/lib/api";
+import { PROPERTY_TYPES_UY, AMENITIES_UY } from "@/lib/catalogs";
 
 /**
  * Brokerage policies and personal preferences, as served by the API.
@@ -25,6 +26,10 @@ export interface OrgPolicies {
     photosRequiredToActivate: number;
     maxPhotosPerListing: number;
     descriptionMaxChars: number;
+    propertyTypes: string[];
+    amenities: string[];
+    /** Show New York deal concepts (board package, MLS #, StreetEasy/Zillow). Off in Uruguay. */
+    usStyleDeal: boolean;
   };
   finance: { showAgentGross: boolean; fiscalYearStartMonth: number };
   appointments: { workdayStart: string; workdayEnd: string; showWeekends: boolean; preventDoubleBooking: boolean; bufferMinutes: number };
@@ -39,12 +44,15 @@ export interface UserPreferences {
 }
 
 export const DEFAULT_LEAD_SOURCES = [
-  "Referral", "Website", "Zillow", "StreetEasy", "Realtor.com", "Open House", "Sign Call", "Social Media", "Past Client", "Sphere",
+  "Sitio web", "WhatsApp", "InfoCasas", "Mercado Libre", "Gallito", "Instagram", "Facebook", "Cartel", "Referido", "Oficina",
 ];
 
 export const DEFAULT_POLICIES: OrgPolicies = {
   crm: { requiredFields: [], maxClientsPerAgent: 0, clientVisibility: "own", duplicateCheck: true, leadSources: DEFAULT_LEAD_SOURCES },
-  properties: { whoCanCreate: "ALL_STAFF", requiredFields: [], photosRequiredToActivate: 0, maxPhotosPerListing: 0, descriptionMaxChars: 0 },
+  properties: {
+    whoCanCreate: "ALL_STAFF", requiredFields: [], photosRequiredToActivate: 0, maxPhotosPerListing: 0, descriptionMaxChars: 0,
+    propertyTypes: [...PROPERTY_TYPES_UY], amenities: [...AMENITIES_UY], usStyleDeal: false,
+  },
   finance: { showAgentGross: true, fiscalYearStartMonth: 1 },
   appointments: { workdayStart: "09:00", workdayEnd: "18:00", showWeekends: true, preventDoubleBooking: false, bufferMinutes: 0 },
   documents: { allowedFormats: ["pdf", "word", "image"], maxFileSizeMb: 20 },

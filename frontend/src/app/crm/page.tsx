@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { formatPhoneUY } from "@/lib/catalogs";
 import { useI18n } from "@/lib/i18n/I18nContext";
 import { useToast } from "@/components/ui/Toast";
 import Link from "next/link";
@@ -286,7 +287,7 @@ export default function CRMPage() {
                       </span>
                     </td>
                     <td className={`${cellPad} text-foreground/60 tracking-wide font-medium`}>
-                      {client.phone || "-"}
+                      {formatPhoneUY(client.phone) || "-"}
                     </td>
                     {showBudget && (
                       <td className={`${cellPad} text-foreground/80 font-medium tracking-wide`}>

@@ -2,6 +2,7 @@ import { prisma } from '../server';
 import { createNotification } from '../routes/notifications';
 import { normalizePreferences } from './policies';
 import { orgIdsWithModuleOff } from './modules';
+import { orgLocale, formatWhen } from './messages';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -35,10 +36,11 @@ export async function sendAppointmentReminders() {
         const leadHours = normalizePreferences(a.agent.preferences).appointments.reminderLeadHours;
         if (a.date.getTime() - now.getTime() > leadHours * HOUR) continue;
         reminded++;
-        const who = a.client ? ` with ${a.client.firstName} ${a.client.lastName}` : '';
-        const where = a.property ? ` at ${a.property.address}` : a.location ? ` at ${a.location}` : '';
-        await createNotification(a.agentId, a.orgId, 'APPOINTMENT_REMINDER', 'Upcoming appointment',
-            `"${a.title}"${who}${where} — ${a.date.toISOString().replace('T', ' ').slice(0, 16)} UTC`, '/appointments');
+        const { m, lang, timeZone } = await orgLocale(a.orgId);
+        const who = a.client ? `${a.client.firstName} ${a.client.lastName}`.trim() : '';
+        const where = a.property ? a.property.address : a.location || '';
+        await createNotification(a.agentId, a.orgId, 'APPOINTMENT_REMINDER', m.upcomingAppointment,
+            m.appointmentDetail(a.title, who, where, formatWhen(a.date, lang, timeZone)), '/appointments');
         await prisma.appointment.update({ where: { id: a.id }, data: { reminderSent: true } });
     }
 
@@ -52,12 +54,13 @@ export async function sendAppointmentReminders() {
         take: 200,
     });
     for (const t of overdueTasks) {
+        const { m, lang, timeZone } = await orgLocale(t.orgId);
         await createNotification(
             t.agentId,
             t.orgId,
             'TASK_DUE',
-            `Task overdue: ${t.title}`,
-            `"${t.title}" is past its due time (${t.dueDate?.toISOString().replace('T', ' ').slice(0, 16)} UTC).`,
+            m.taskOverdue(t.title),
+            m.taskOverdueDetail(t.title, t.dueDate ? formatWhen(t.dueDate, lang, timeZone) : ''),
             t.linkedClientId ? `/crm/${t.linkedClientId}` : '/tasks',
         );
         await prisma.task.update({ where: { id: t.id }, data: { overdueNotified: true } });

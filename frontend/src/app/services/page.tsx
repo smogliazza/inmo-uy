@@ -7,6 +7,7 @@ import { useExtra } from "@/lib/i18n/extra";
 import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { api } from "@/lib/api";
+import { fmtLocale } from "@/lib/format";
 
 const INPUT = "w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:border-primary outline-none";
 const BTN = "px-4 py-2 bg-primary text-background hover:opacity-90 transition-opacity rounded-lg text-sm font-semibold shadow-sm disabled:opacity-50";
@@ -113,7 +114,7 @@ export default function ServicesPage() {
                   <li key={g.id} className="py-2 flex items-center justify-between gap-3 text-sm">
                     <div>
                       <div className="font-medium">{g.item}</div>
-                      <div className="text-foreground/50 text-xs">{g.client?.firstName} {g.client?.lastName} · {new Date(g.createdAt).toLocaleDateString()}</div>
+                      <div className="text-foreground/50 text-xs">{g.client?.firstName} {g.client?.lastName} · {new Date(g.createdAt).toLocaleDateString(fmtLocale())}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs px-2 py-0.5 rounded bg-surface border border-border">{g.status}</span>

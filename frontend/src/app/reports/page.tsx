@@ -6,6 +6,7 @@ import {
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import { useI18n } from "@/lib/i18n/I18nContext";
+import { fmtLocale } from "@/lib/format";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const token = () => (typeof window !== "undefined" ? localStorage.getItem("token") || "" : "");
@@ -86,7 +87,7 @@ export default function ReportsPage() {
         const agentLabel = T.leaderboard?.agent;
         const ytdLabel   = T.leaderboard?.ytdGross;
         const rows = [[agentLabel, ytdLabel]];
-        leaderboard.forEach(r => rows.push([r.agent, `$${r.ytd.toLocaleString()}`]));
+        leaderboard.forEach(r => rows.push([r.agent, `$${r.ytd.toLocaleString(fmtLocale())}`]));
         const csv = rows.map(r => r.join(",")).join("\n");
         const blob = new Blob([csv], { type: "text/csv" });
         const a = document.createElement("a");

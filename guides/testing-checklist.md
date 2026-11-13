@@ -93,4 +93,18 @@ happen; note anything that doesn't.
 - [ ] Con **Regalos** y **Referidos** apagados, "Servicios" no aparece en el menú; con uno solo encendido, la
   página muestra solo esa tarjeta.
 
+## 11. Localización Uruguay (fork Uruguay)
+
+- [ ] Una inmobiliaria nueva arranca en español; en Ajustes > Datos de la inmobiliaria la zona horaria es
+  America/Montevideo y la moneda US$. El selector de idioma muestra Español e Inglés.
+- [ ] Ninguna pantalla activa (panel, CRM, propiedades, visitas, tareas, documentos, ajustes, sitio público,
+  ingreso y registro) muestra textos en inglés.
+- [ ] Cargar un cliente con teléfono «099 123 456»: en la ficha se ve igual, y cargar otro con «+598 99 123 456»
+  avisa que está duplicado.
+- [ ] Cargar una propiedad en «termas del dayman» y otra en «Termas del Daymán»: las dos quedan en la misma
+  ciudad, escrita «Termas del Daymán». El departamento se elige de la lista.
+- [ ] El tipo de propiedad ofrece el catálogo de Uruguay; en Ajustes > Propiedades se puede cambiar.
+- [ ] Una consulta desde el sitio llega como «Nueva consulta (Sitio web)» y crea la tarea «Llamar a…».
+- [ ] Los números se ven con punto de miles y coma decimal; las horas de los avisos, en hora de Montevideo.
+
 Report problems with: the page, what you clicked, what you expected, what happened, and a screenshot.

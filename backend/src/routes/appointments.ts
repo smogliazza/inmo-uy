@@ -1,5 +1,6 @@
 import express from 'express';
 import { prisma } from '../server';
+import { orgLocale, formatWhen } from '../lib/messages';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { createNotification } from './notifications';
 import { checkRefs, isManager, optDate, optNumber, pickEnum } from '../lib/access';
@@ -121,9 +122,9 @@ router.post('/', async (req: AuthRequest, res) => {
         data: { ...data, status, agentId: user.userId, orgId: user.orgId },
     });
 
-    const when = appointment.date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-    await createNotification(user.userId, user.orgId, 'APPOINTMENT_REMINDER', 'Appointment scheduled',
-        `"${appointment.title}" is scheduled for ${when}.`, '/appointments');
+    const { m, lang, timeZone } = await orgLocale(user.orgId);
+    await createNotification(user.userId, user.orgId, 'APPOINTMENT_REMINDER', m.appointmentScheduled,
+        m.appointmentScheduledDetail(appointment.title, formatWhen(appointment.date, lang, timeZone)), '/appointments');
     if (appointment.clientId && appointment.type === 'SHOWING') {
         await prisma.client.updateMany({
             where: { id: appointment.clientId, funnelStage: { in: ['LEAD', 'QUALIFIED'] } },

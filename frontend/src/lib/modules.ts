@@ -81,6 +81,8 @@ function setModules(list: ModuleState[]) {
 async function load(force = false): Promise<void> {
   if (!force && snapshot.loaded && Date.now() - fetchedAt < STALE_MS) return;
   if (inflight) return inflight;
+  // No session (public pages): nothing to ask. Calling the API would answer 401, and api() sends a 401 to /login.
+  if (typeof window === "undefined" || !localStorage.getItem("token")) return;
   inflight = (async () => {
     try {
       const r = await api("/api/settings/modules");

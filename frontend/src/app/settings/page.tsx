@@ -17,7 +17,9 @@ const ROLE_WEIGHT: Record<string, number> = {
 import { INPUT_CLS, SELECT_CLS, TEXTAREA_CLS, LOCKED_BADGE, Toggle, SectionHeader, SettingRow, LockedRow, SubTabs } from "./ui";
 import { CrmSettings, PropertiesSettings, FinanceSettings, AppointmentsSettings, DocumentsSettings } from "./PolicySections";
 import ModulesSettings from "./ModulesSettings";
+import { useSettings } from "@/lib/settings/useSettings";
 import { useModules, ModuleKey } from "@/lib/modules";
+import { fmtLocale } from "@/lib/format";
 
 // ─── Permission level types ─────────────────────────────────────────────────────
 type PermLevel = "full" | "team" | "own" | "read" | "none";
@@ -47,6 +49,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const toast = useToast();
   const { isOn: isModuleOn } = useModules();
+  const XLB = useExtra().labels;
 
   const S    = (t as any).settings   ?? {};
   const R    = (t as any).roles      ?? {};
@@ -148,7 +151,10 @@ export default function SettingsPage() {
   const [inviteRole,  setInviteRole]    = React.useState("AGENT");
   const [routingRules, setRoutingRules] = React.useState<any[]>([]);
   const [newRule, setNewRule]           = React.useState({ name: "", source: "", city: "", minPrice: "", maxPrice: "", strategy: "ROUND_ROBIN", targetAgentId: "" });
-  const [simInput, setSimInput]         = React.useState({ source: "Open House", city: "New York", price: "1500000" });
+  const [simInput, setSimInput]         = React.useState({ source: "Sitio web", city: "", price: "" });
+  // Inquiries from the website come in as "Sitio web" / "Puertas abiertas"; the rest are the brokerage's lead sources
+  const { policies: orgPolicies } = useSettings();
+  const routingSources = Array.from(new Set(["Sitio web", "Puertas abiertas", ...orgPolicies.crm.leadSources]));
   const [simResult, setSimResult]       = React.useState<any>(null);
 
   // ── Access matrix ────────────────────────────────────────────────────────────
@@ -411,7 +417,7 @@ export default function SettingsPage() {
           <input className={INPUT_CLS} value={profile.title} onChange={(e) => setProfile({ ...profile, title: e.target.value })} placeholder="Senior Broker Associate" />
         </SettingRow>
         <SettingRow label={P.phone ?? "Phone"} description={P.phoneDesc}>
-          <input className={INPUT_CLS} value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} placeholder="+1 (212) 555-0101" />
+          <input className={INPUT_CLS} value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} placeholder={XLB.phonePlaceholder} />
         </SettingRow>
         <SettingRow label={P.licenseNumber ?? "License Number"} description={P.licenseNumberDesc}>
           <input className={INPUT_CLS} value={profile.licenseNumber} onChange={(e) => setProfile({ ...profile, licenseNumber: e.target.value })} placeholder="10491234567" />
@@ -1120,7 +1126,7 @@ export default function SettingsPage() {
                       {rule.city && <span>{LR.cityLabel}: <strong>{rule.city}</strong></span>}
                       {(rule.minPrice !== null || rule.maxPrice !== null) && (
                         <span>
-                          ${rule.minPrice?.toLocaleString() || "0"} – {rule.maxPrice ? `$${rule.maxPrice.toLocaleString()}` : "∞"}
+                          ${rule.minPrice?.toLocaleString(fmtLocale()) || "0"} – {rule.maxPrice ? `$${rule.maxPrice.toLocaleString(fmtLocale())}` : "∞"}
                         </span>
                       )}
                     </div>
@@ -1152,10 +1158,7 @@ export default function SettingsPage() {
                 <label className="block text-xs text-foreground/50 mb-1">{LR.sourceLabel}</label>
                 <select className={`${SELECT_CLS} w-full`} value={newRule.source} onChange={(e) => setNewRule({ ...newRule, source: e.target.value })}>
                   <option value="">{LR.anySource}</option>
-                  <option value="Website">Website</option>
-                  <option value="Open House">Open House</option>
-                  <option value="Zillow">Zillow</option>
-                  <option value="StreetEasy">StreetEasy</option>
+                  {routingSources.map((src) => <option key={src} value={src}>{src}</option>)}
                 </select>
               </div>
               <div>
@@ -1210,9 +1213,7 @@ export default function SettingsPage() {
               <div>
                 <label className="block text-xs text-foreground/50 mb-1">{LR.sourceLabel}</label>
                 <select className={`${SELECT_CLS} w-full`} value={simInput.source} onChange={(e) => setSimInput({ ...simInput, source: e.target.value })}>
-                  <option value="Website">Website</option>
-                  <option value="Open House">Open House</option>
-                  <option value="Zillow">Zillow</option>
+                  {routingSources.map((src) => <option key={src} value={src}>{src}</option>)}
                 </select>
               </div>
               <div>
@@ -1220,7 +1221,7 @@ export default function SettingsPage() {
                 <input className={`${INPUT_CLS} w-full`} value={simInput.city} onChange={(e) => setSimInput({ ...simInput, city: e.target.value })} />
               </div>
               <div>
-                <label className="block text-xs text-foreground/50 mb-1">Price ($)</label>
+                <label className="block text-xs text-foreground/50 mb-1">{LR.priceLabel}</label>
                 <input type="number" className={`${INPUT_CLS} w-full`} value={simInput.price} onChange={(e) => setSimInput({ ...simInput, price: e.target.value })} />
               </div>
             </div>

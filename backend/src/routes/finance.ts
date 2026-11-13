@@ -1,5 +1,6 @@
 import express from 'express';
 import { prisma } from '../server';
+import { orgLocale, formatAmount } from '../lib/messages';
 import { AuthRequest, requireTier, authorizeRole } from '../middleware/authMiddleware';
 import { audit } from '../lib/audit';
 import { createNotification } from './notifications';
@@ -234,8 +235,9 @@ router.post('/commissions/:id/approve', authorizeRole(['SUPERADMIN', 'FIRMADMIN'
 
         const updated = await prisma.commission.findUnique({ where: { id: commId } });
         await audit(req, 'APPROVE_PAYOUT', 'Commission', commId, { status: 'REQUESTED' }, { status: 'PAID', netPayout: commission.netPayout, agentId: commission.agentId });
-        await createNotification(commission.agentId, commission.orgId, 'COMMISSION_PAID', 'Payout approved',
-            `Your commission payout of $${commission.netPayout.toLocaleString()} was approved.`, '/finance');
+        const { m, lang } = await orgLocale(commission.orgId);
+        await createNotification(commission.agentId, commission.orgId, 'COMMISSION_PAID', m.payoutApproved,
+            m.payoutApprovedDetail(`$ ${formatAmount(commission.netPayout, lang)}`), '/finance');
         res.json(updated);
     } catch (error) {
         console.error('Error approving payout:', error);
@@ -268,8 +270,8 @@ router.post('/commissions/:id/reject', authorizeRole(['SUPERADMIN', 'FIRMADMIN',
 
         const updated = await prisma.commission.findUnique({ where: { id: commId } });
         await audit(req, 'REJECT_PAYOUT', 'Commission', commId, { status: 'REQUESTED' }, { status: 'PENDING', agentId: commission.agentId });
-        await createNotification(commission.agentId, commission.orgId, 'SYSTEM', 'Payout request returned',
-            'Your payout request was not approved. Check with your manager.', '/finance');
+        const { m } = await orgLocale(commission.orgId);
+        await createNotification(commission.agentId, commission.orgId, 'SYSTEM', m.payoutReturned, m.payoutReturnedDetail, '/finance');
         res.json(updated);
     } catch (error) {
         console.error('Error rejecting payout:', error);

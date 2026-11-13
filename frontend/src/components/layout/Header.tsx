@@ -3,9 +3,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useI18n } from "@/lib/i18n/I18nContext";
+import { useI18n, SUPPORTED_LANGUAGES } from "@/lib/i18n/I18nContext";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useTheme, ThemeName } from "@/lib/theme/ThemeContext";
+import { fmtLocale } from "@/lib/format";
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -140,7 +141,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         if (diff < 60)    return 'just now';
         if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
         if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-        return d.toLocaleDateString();
+        return d.toLocaleDateString(fmtLocale());
     };
 
     const themeNames = (t as any).settings?.appearance?.themeNames ?? {};
@@ -225,7 +226,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                                             </div>
                                             <div className="min-w-0">
                                                 <div className="text-sm font-medium text-foreground truncate">{p.address}</div>
-                                                <div className="text-xs text-foreground/40">{p.city}, {p.state} · ${p.price.toLocaleString()}</div>
+                                                <div className="text-xs text-foreground/40">{p.city}, {p.state} · ${p.price.toLocaleString(fmtLocale())}</div>
                                             </div>
                                         </Link>
                                     ))}
@@ -294,12 +295,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                     </button>
                     {isLangOpen && (
                         <div className="absolute top-full right-0 mt-2 w-44 bg-surface rounded-xl shadow-lg border border-border overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                            {[
-                                { code: 'en',    label: 'English' },
-                                { code: 'zh-CN', label: '简体中文' },
-                                { code: 'zh-TW', label: '繁體中文' },
-                                { code: 'es',    label: 'Español' },
-                            ].map(l => (
+                            {SUPPORTED_LANGUAGES.map(l => (
                                 <button key={l.code} onClick={() => { setLanguage(l.code as any); setIsLangOpen(false); }}
                                     className={`w-full text-left px-3 py-2.5 text-sm transition-colors ${language === l.code ? 'bg-primary/10 text-primary font-semibold' : 'text-foreground/70 hover:bg-surface-hover'}`}>
                                     {l.label}

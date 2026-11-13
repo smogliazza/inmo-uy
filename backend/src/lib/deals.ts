@@ -1,5 +1,6 @@
 import { Transaction } from '@prisma/client';
 import { prisma } from '../server';
+import { orgLocale } from './messages';
 import { createNotification } from '../routes/notifications';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -70,12 +71,8 @@ export async function onTransactionStatusChange(tx: Transaction, previous: strin
         await prisma.client.updateMany({ where: { id: tx.clientId, status: 'IN_CONTRACT' }, data: { status: 'ACTIVE', funnelStage: 'SHOWING' } });
     }
 
-    await createNotification(
-        tx.agentId, tx.orgId, 'TRANSACTION_UPDATE',
-        'Deal status updated',
-        `Deal moved to ${tx.status.replace(/_/g, ' ').toLowerCase()}.`,
-        '/transactions',
-    );
+    const { m } = await orgLocale(tx.orgId);
+    await createNotification(tx.agentId, tx.orgId, 'TRANSACTION_UPDATE', m.dealUpdated, m.dealUpdatedDetail(tx.status), '/transactions');
 }
 
 export async function ensureCommission(tx: Transaction) {
