@@ -87,6 +87,10 @@ el alcance de cada fase. Si algo de este archivo la contradice, avisá en el PR.
   horaria. Números y fechas en el frontend con `fmtLocale()` (`lib/format.ts`), nunca `toLocaleString()` a secas.
   Teléfonos: `normalizePhoneUY` al guardar y `formatPhoneUY` al mostrar. Ciudades: `matchPlaceName`. Catálogos
   en `backend/src/lib/catalogs.ts` (espejo en `frontend/src/lib/catalogs.ts`).
+- **Precios de propiedades.** Viven en `PropertyPrice` (una fila por operación; `amount` null + `onRequest` =
+  «Consultar»). Se guardan siempre con `savePrices()` de `backend/src/lib/listing.ts`, que mantiene
+  `Property.price` (heredado) sincronizado para reportes y comisiones. Nunca sumar importes de monedas distintas.
+  Las coordenadas públicas salen por `publicCoords()` (respeta `geoPrecision`). Fotos: `createWebpVariants()`.
 - Priorizar lo que resuelve problemas concretos de inmobiliarias y agentes, sin agregar peso innecesario.
 - El repo es **público** y su historial no se puede borrar de verdad: nunca commitear secretos, cadenas de
   conexión ni contraseñas, ni documentos (Word u otros binarios) que los contengan. Los pendientes que

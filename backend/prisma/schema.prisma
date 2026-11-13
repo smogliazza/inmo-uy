@@ -30,6 +30,11 @@ model Organization {
   country           String   @default("UY")
   timezone          String   @default("America/Montevideo")
   defaultCurrency   Currency @default(USD)
+  customDomain      String?  @unique // the brokerage's own domain (phase F5)
+  whatsapp          String?
+  siteConfig        Json?            // public site: theme, home page, pages, social links, hours (phase F5)
+  isDemo            Boolean  @default(false)
+  demoExpiresAt     DateTime?
   website           String?
   address           String?
   phone             String?
@@ -179,6 +184,12 @@ model Client {
   referredBy          String?   // free-text referrer name
   coAgentId           String?   // co-agent on same client
   temperature         String?   @default("WARM") // HOT | WARM | COLD — lead priority
+  // Uruguay (spec 6.3)
+  documentType        IdDocumentType?
+  documentNumber      String?
+  whatsapp            String?
+  searchCriteria      Json?     // "Díganos lo que busca": operation, types, cities, price range, bedrooms
+  consentAt           DateTime? // data-protection consent from a public form (Ley 18.331)
 
   agentId      String
   agent        User         @relation(fields: [agentId], references: [id])
@@ -200,6 +211,15 @@ enum ClientType {
   REFERRAL
   RENTER
   INVESTOR
+  OWNER
+  TENANT
+}
+
+enum IdDocumentType {
+  CI
+  RUT
+  PASSPORT
+  OTHER
 }
 
 enum ClientStatus {
@@ -226,22 +246,22 @@ model Property {
   id          String     @id @default(uuid())
   address     String
   city        String
-  state       String
-  zip         String
-  price       Float
-  beds        Float
-  baths       Float
-  sqft        Int?
+  state       String?    // in Uruguay: the department (Salto, Montevideo…)
+  zip         String?
+  price       Float?     // legacy: kept in sync with PropertyPrice (sale price, else rent) for reports and commissions
+  beds        Float?
+  baths       Float?
+  sqft        Int?       // deprecated for Uruguay: builtAreaM2 replaces it
   description String?
   status      PropStatus @default(ACTIVE)
 
   // Extended fields
-  propertyType    String?   // CONDO | COOP | TOWNHOUSE | SINGLE_FAMILY | MULTI_FAMILY | COMMERCIAL | LAND
+  propertyType    String?   // catalog in src/lib/catalogs.ts (APARTAMENTO, CASA, CAMPO_CHACRA… and the legacy New York types)
   neighborhood    String?
   yearBuilt       Int?
   mlsNumber       String?
-  hoaFee          Float?
-  parkingSpaces   Int?
+  hoaFee          Float?    // gastos comunes; currency in hoaFeeCurrency
+  parkingSpaces   Int?      // deprecated alias: garageSpaces replaces it
   virtualTourUrl  String?
   featuredImage   String?
   featured        Boolean  @default(false)
@@ -261,6 +281,76 @@ model Property {
   appointments  Appointment[]
   mediaAssets   MediaAsset[]
   propertyNotes Note[]
+
+  // ── Uruguay (spec 6.2): every column optional ──
+  code           String?        // the brokerage's own code ("COD.")
+  slug           String?        // friendly URL part
+  isPublic       Boolean        @default(true)
+  locality       String?        // locality / neighbourhood when city is the department capital
+  lat            Float?
+  lng            Float?
+  geoPrecision   GeoPrecision   @default(EXACT)
+  builtAreaM2    Float?
+  landArea       Float?
+  landAreaUnit   AreaUnit?
+  garageSpaces   Int?
+  amenities      String[]       @default([])
+  hoaFeeCurrency Currency?
+  padron         String?        // cadastral number
+  furnished      Boolean        @default(false)
+  externalSource String?        // 'inmobiliariaya' | 'csv' | ...
+  externalId     String?
+  externalUrl    String?
+  importedAt     DateTime?
+  prices         PropertyPrice[]
+
+  @@unique([orgId, code])
+  @@unique([orgId, externalSource, externalId])
+  @@index([orgId, isPublic, status])
+  @@index([orgId, lat, lng])
+}
+
+enum GeoPrecision {
+  EXACT
+  APPROX
+  HIDDEN
+}
+
+enum AreaUnit {
+  M2
+  HA
+}
+
+// One row per operation: a property can be for sale and for rent at the same time (spec 6.2)
+model PropertyPrice {
+  id         String      @id @default(uuid())
+  propertyId String
+  property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  orgId      String
+  operation  Operation
+  amount     Decimal?    @db.Decimal(14, 2) // null + onRequest = "Consultar"
+  currency   Currency    @default(USD)
+  period     RentPeriod? // rentals only
+  onRequest  Boolean     @default(false)
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@unique([propertyId, operation])
+  @@index([orgId, operation, isActive, amount])
+}
+
+enum Operation {
+  SALE
+  RENT
+  SEASONAL_RENT
+}
+
+enum RentPeriod {
+  MONTH
+  WEEK
+  NIGHT
+  SEASON
 }
 
 enum PropStatus {
@@ -270,6 +360,8 @@ enum PropStatus {
   SOLD
   WITHDRAWN
   EXPIRED
+  RESERVED
+  RENTED
 }
 
 // ─── Transaction ─────────────────────────────────────────────────────────────
@@ -458,6 +550,10 @@ model MediaAsset {
   sizeBytes  Int?
   mimeType   String?
   storageKey String?
+  variants   Json?    // WebP sizes: { thumb, md, lg } → { url, width, height, storageKey }
+  width      Int?
+  height     Int?
+  sourceUrl  String?  // where an imported photo came from
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id])
   orgId      String

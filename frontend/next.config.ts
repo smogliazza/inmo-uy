@@ -8,9 +8,18 @@ try {
   apiOrigin = "";
 }
 
+// Map tiles, style and fonts (MapLibre + OpenFreeMap by default; NEXT_PUBLIC_MAP_STYLE_URL can point elsewhere)
+let mapOrigin = "https://tiles.openfreemap.org";
+try {
+  mapOrigin = new URL(process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty").origin;
+} catch {
+  /* keep the default */
+}
+
 const connectSrc = [
   "'self'",
   apiOrigin,
+  mapOrigin,
   "https://*.onrender.com",
   "https://*.sentry.io",
   "https://*.ingest.sentry.io",
@@ -25,6 +34,9 @@ const cspDirectives = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
+  // MapLibre renders in a web worker created from a blob
+  "worker-src 'self' blob:",
+  "child-src 'self' blob:",
   `connect-src ${connectSrc}`,
   "frame-src 'self' https://accounts.google.com https://js.stripe.com",
   "frame-ancestors 'none'",

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useI18n, SUPPORTED_LANGUAGES } from '@/lib/i18n/I18nContext';
 import { useExtra, fmt } from '@/lib/i18n/extra';
 import { fmtLocale } from "@/lib/format";
+import { activePrices, formatPrice as formatPriceRow, PriceRow } from "@/lib/prices";
 
 interface Property {
   id: string;
@@ -11,7 +12,8 @@ interface Property {
   city: string;
   state: string;
   zip: string;
-  price: number;
+  price: number | null;
+  prices?: PriceRow[];
   beds: number;
   baths: number;
   sqft: number | null;
@@ -28,13 +30,8 @@ const STATUS_COLORS: Record<string, string> = {
 const BEDS_OPTIONS = ['Any', '1+', '2+', '3+', '4+'];
 const BATHS_OPTIONS = ['Any', '1+', '2+', '3+'];
 
-function formatPrice(price: number) {
-  if (price >= 1_000_000) return `$${(price / 1_000_000).toFixed(price % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (price >= 1_000) return `$${(price / 1_000).toFixed(0)}K`;
-  return `$${price.toLocaleString(fmtLocale())}`;
-}
 
-function PropertyCard({ property, onContact, P }: { property: Property; index: number; onContact: () => void; P: ReturnType<typeof useExtra>['publicListing'] }) {
+function PropertyCard({ property, onContact, P, L }: { property: Property; index: number; onContact: () => void; P: ReturnType<typeof useExtra>['publicListing']; L: ReturnType<typeof useExtra>['propertyForm'] }) {
   const imgSrc = property.imageUrl;
   const statusColor = STATUS_COLORS[property.status] || STATUS_COLORS.SOLD;
   const statusLabel = property.status === 'ACTIVE' ? P.forSale : property.status === 'IN_CONTRACT' ? P.inContract : property.status === 'SOLD' ? P.sold : property.status;
@@ -60,7 +57,11 @@ function PropertyCard({ property, onContact, P }: { property: Property; index: n
           </span>
         </div>
         <div className="absolute bottom-3 left-3">
-          <span className="text-xl font-bold text-foreground drop-shadow-lg">{formatPrice(property.price)}</span>
+          <span className="text-xl font-bold text-foreground drop-shadow-lg flex flex-col">
+            {/* One line per operation (sale in US$, rent in $…), "Consultar" when there is no published price */}
+            {(activePrices(property.prices).length ? activePrices(property.prices) : property.price != null ? [{ operation: "SALE", amount: property.price, currency: "USD" } as PriceRow] : [{ operation: "SALE", amount: null, currency: "USD", onRequest: true } as PriceRow])
+              .map(p => <span key={p.operation}>{formatPriceRow(p, L)}</span>)}
+          </span>
         </div>
       </div>
 
@@ -162,8 +163,8 @@ export default function PublicListingsPage() {
       const kw = keyword.toLowerCase();
       if (!p.address.toLowerCase().includes(kw) && !p.city.toLowerCase().includes(kw) && !p.zip.includes(kw)) return false;
     }
-    if (minPrice && p.price < parseFloat(minPrice)) return false;
-    if (maxPrice && p.price > parseFloat(maxPrice)) return false;
+    if (minPrice && (p.price ?? 0) < parseFloat(minPrice)) return false;
+    if (maxPrice && (p.price ?? Infinity) > parseFloat(maxPrice)) return false;
     if (minBeds !== 'Any') {
       const min = parseInt(minBeds);
       if (p.beds < min) return false;
@@ -348,7 +349,7 @@ export default function PublicListingsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((p, i) => (
-              <PropertyCard key={p.id} property={p} index={i} P={P} onContact={() => { window.location.href = `/public-listings/${p.id}`; }} />
+              <PropertyCard key={p.id} property={p} index={i} P={P} L={X.propertyForm} onContact={() => { window.location.href = `/public-listings/${p.id}`; }} />
             ))}
           </div>
         )}

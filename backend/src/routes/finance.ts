@@ -334,7 +334,7 @@ router.get('/projections', requireTier('ELITE'), async (req: AuthRequest, res) =
 
             // Listings close in month 3-6
             if (i >= 3 && i <= 5) {
-                const totalListingValue = activeListings.reduce((sum, p) => sum + p.price, 0);
+                const totalListingValue = activeListings.reduce((sum, p) => sum + (p.price ?? 0), 0);
                 projectedAmount += (totalListingValue / 3) * AVG_COMMISSION_RATE * AGENT_NET_RATIO * LISTING_CLOSE_PROBABILITY;
             }
 

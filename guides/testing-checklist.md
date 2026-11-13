@@ -107,4 +107,19 @@ happen; note anything that doesn't.
 - [ ] Una consulta desde el sitio llega como «Nueva consulta (Sitio web)» y crea la tarea «Llamar a…».
 - [ ] Los números se ven con punto de miles y coma decimal; las horas de los avisos, en hora de Montevideo.
 
+## 12. Propiedades Uruguay (fork Uruguay)
+
+- [ ] Cargar un campo en hectáreas, sin dirección (solo la zona) y con precio «Consultar»: se guarda y la ficha
+  pública muestra «Consultar».
+- [ ] Cargar una casa en venta en US$ y en alquiler en $ a la vez: la tarjeta del panel y el sitio muestran las
+  dos («US$ 290.000» y «$ 25.000 por mes»).
+- [ ] Editar una propiedad (botón «Editar» en la tarjeta), quitar el alquiler y guardar: queda solo la venta.
+- [ ] En Ubicación, marcar el pin en el mapa; elegir «Aproximada»: el sitio público no muestra el punto exacto.
+  Con «Oculta», no muestra ubicación. Desmarcar «Mostrar en el sitio web»: la ficha pública deja de verse.
+- [ ] Subir una foto grande: se ve bien en el sitio y carga rápido (hay versiones WebP más chicas).
+- [ ] En Ajustes > Propiedades, marcar «Dormitorios» como obligatorio: una casa sin dormitorios no se guarda,
+  un local comercial sí.
+- [ ] Importar un CSV con una fila sin ciudad: esa fila se informa como error y las demás se importan.
+- [ ] Las propiedades que ya existían siguen mostrando su precio.
+
 Report problems with: the page, what you clicked, what you expected, what happened, and a screenshot.

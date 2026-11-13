@@ -7,6 +7,7 @@ import { useI18n, SUPPORTED_LANGUAGES } from "@/lib/i18n/I18nContext";
 import { useExtra } from "@/lib/i18n/extra";
 import { api } from "@/lib/api";
 import { fmtLocale } from "@/lib/format";
+import { activePrices, formatPrice, PriceRow } from "@/lib/prices";
 import { formatPhoneUY } from "@/lib/catalogs";
 
 const INPUT = "w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground focus:border-primary outline-none";
@@ -100,7 +101,10 @@ export default function PublicListingPage() {
           )}
 
           <div>
-            <div className="text-3xl font-bold">${Number(listing.price).toLocaleString(fmtLocale())}</div>
+            <div className="text-3xl font-bold flex flex-col">
+              {(activePrices(listing.prices).length ? activePrices(listing.prices) : [{ operation: "SALE", amount: listing.price, currency: "USD", onRequest: listing.price == null } as PriceRow])
+                .map((p: PriceRow) => <span key={p.operation}>{formatPrice(p, X.propertyForm)}</span>)}
+            </div>
             <h1 className="text-xl mt-1">{listing.address}</h1>
             <p className="text-foreground/60">{listing.city}, {listing.state} {listing.zip}{listing.neighborhood ? ` · ${listing.neighborhood}` : ""}</p>
             <div className="flex flex-wrap gap-4 mt-3 text-sm text-foreground/80">

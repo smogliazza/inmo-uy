@@ -15,7 +15,13 @@ import { ALL_PROPERTY_TYPES, PROPERTY_TYPES_UY, AMENITIES_UY, LEAD_SOURCES_UY } 
 // ─── Option lists ────────────────────────────────────────────────────────────
 
 export const CLIENT_REQUIRED_FIELD_OPTIONS = ['phone', 'email', 'budget', 'source'] as const;
-export const LISTING_REQUIRED_FIELD_OPTIONS = ['sqft', 'propertyType', 'neighborhood', 'description', 'yearBuilt'] as const;
+// propertyType is always required now (spec 6.1); it stays in the list so stored policies remain valid.
+export const LISTING_REQUIRED_FIELD_OPTIONS = [
+    'sqft', 'propertyType', 'neighborhood', 'description', 'yearBuilt',
+    'beds', 'baths', 'builtAreaM2', 'landArea', 'locality', 'code', 'padron', 'state',
+] as const;
+/** Bedrooms and bathrooms are only asked for housing (spec 6.1: "dormitorios en casas y apartamentos"). */
+export const RESIDENTIAL_TYPES = ['APARTAMENTO', 'CASA', 'CONDO', 'COOP', 'TOWNHOUSE', 'SINGLE_FAMILY', 'MULTI_FAMILY'];
 export const DOCUMENT_FORMAT_OPTIONS = ['pdf', 'word', 'image'] as const;
 export const CLIENT_VISIBILITY_OPTIONS = ['own', 'all'] as const;
 export const LISTING_CREATOR_OPTIONS = ['ALL_STAFF', 'MANAGERS'] as const;
@@ -306,6 +312,8 @@ export function applyPreferencesPatch(current: UserPreferences, patch: unknown):
 const CLIENT_FIELD_LABELS: Record<ClientRequiredField, string> = { phone: 'Phone', email: 'Email', budget: 'Budget', source: 'Lead source' };
 const LISTING_FIELD_LABELS: Record<ListingRequiredField, string> = {
     sqft: 'Square footage', propertyType: 'Property type', neighborhood: 'Neighborhood', description: 'Description', yearBuilt: 'Year built',
+    beds: 'Bedrooms', baths: 'Bathrooms', builtAreaM2: 'Built area (m²)', landArea: 'Land area', locality: 'Locality',
+    code: 'Property code', padron: 'Padrón', state: 'Department',
 };
 
 const blank = (v: unknown) => v === undefined || v === null || (typeof v === 'string' && v.trim() === '') || (typeof v === 'number' && !Number.isFinite(v));
@@ -320,9 +328,11 @@ export function missingClientField(policy: OrgPolicies['crm'], data: Record<stri
 }
 
 /** First required listing field that is empty in `data`, or null. */
-export function missingListingField(policy: OrgPolicies['properties'], data: Record<string, unknown>, onlyPresent = false): string | null {
+export function missingListingField(policy: OrgPolicies['properties'], data: Record<string, unknown>, onlyPresent = false, propertyType?: string | null): string | null {
     for (const f of policy.requiredFields) {
         if (onlyPresent && !(f in data)) continue;
+        // Bedrooms / bathrooms only for housing; a campo or a local comercial does not need them
+        if ((f === 'beds' || f === 'baths') && propertyType && !RESIDENTIAL_TYPES.includes(propertyType)) continue;
         if (blank(data[f])) return `${LISTING_FIELD_LABELS[f]} is required by your brokerage's listing policy`;
     }
     return null;

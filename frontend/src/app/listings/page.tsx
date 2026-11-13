@@ -3,12 +3,14 @@
 import React from "react";
 import { useI18n } from "@/lib/i18n/I18nContext";
 import { useToast } from "@/components/ui/Toast";
-import { useExtra, fmt } from "@/lib/i18n/extra";
+import { useExtra, fmt, label } from "@/lib/i18n/extra";
 import { parseCsv, mapPropertyCsvRows, downloadCsvTemplate } from "@/lib/csv";
 import { useAiAssistantEnabled } from "@/lib/modules";
 import { api, uploadFile } from "@/lib/api";
 import { useSettings } from "@/lib/settings/useSettings";
-import { DEPARTMENTS_UY } from "@/lib/catalogs";
+import PropertyForm from "@/components/listings/PropertyForm";
+import { activePrices, formatPrice, PriceRow } from "@/lib/prices";
+import { formatNumber } from "@/lib/format";
 
 export default function ListingsPage() {
   const { t } = useI18n();
@@ -16,40 +18,20 @@ export default function ListingsPage() {
   const toast = useToast();
   const AI_ON = useAiAssistantEnabled();
   // Brokerage rules (Settings > Properties) and this person's preferences
-  const { policies, preferences } = useSettings();
+  const { policies } = useSettings();
   const lp = policies.properties;
   const PX = X.policy.properties;
-  const isReq = (field: string) => lp.requiredFields.includes(field);
-  const star = (field: string) => (isReq(field) ? " *" : "");
-  const photoRuleActive = lp.photosRequiredToActivate > 0;
 
   const [properties, setProperties] = React.useState<any[]>([]);
   const [totalProperties, setTotalProperties] = React.useState(0);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [loading, setLoading] = React.useState(true);
-  const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
+  // undefined = closed, null = new listing, id = edit that listing
+  const [formFor, setFormFor] = React.useState<string | null | undefined>(undefined);
   const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
   const [csvRows, setCsvRows] = React.useState<Record<string, string>[]>([]);
   const [onDuplicate, setOnDuplicate] = React.useState<"skip" | "update">("skip");
   const [isImporting, setIsImporting] = React.useState(false);
-  const [formData, setFormData] = React.useState({
-    address: "",
-    city: "",
-    state: "",
-    zip: "",
-    price: "",
-    beds: "",
-    baths: "",
-    sqft: "",
-    status: "COMING_SOON",
-    propertyType: "",
-    neighborhood: "",
-    yearBuilt: "",
-    description: "",
-  });
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [zillowId, setZillowId] = React.useState("");
-  const [isZillowLoading, setIsZillowLoading] = React.useState(false);
 
   // Media Modal State
   const [isMediaModalOpen, setIsMediaModalOpen] = React.useState(false);
@@ -91,11 +73,6 @@ export default function ListingsPage() {
     fetchProperties(1);
   }, []);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
-  ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
 
   const handleMediaChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -140,13 +117,7 @@ export default function ListingsPage() {
     return matchesSearch && matchesStatus;
   });
 
-  // A blank form. New listings start Coming Soon when the brokerage wants photos before a listing goes Active.
-  const blankForm = () => ({
-    address: "", city: "", state: "", zip: "", price: "", beds: "", baths: "", sqft: "",
-    status: photoRuleActive ? "COMING_SOON" : preferences.properties.defaultStatus,
-    propertyType: "", neighborhood: "", yearBuilt: "", description: "",
-  });
-  const openAddModal = () => { setFormData(blankForm()); setIsAddModalOpen(true); };
+  const openAddModal = () => setFormFor(null);
 
   // Coming Soon -> Active (the server checks the photo rule and tells us what is missing)
   const goActive = async (id: string) => {
@@ -155,76 +126,6 @@ export default function ListingsPage() {
       fetchProperties(currentPage);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : X.common.error);
-    }
-  };
-
-  const handleAddProperty = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    const token = localStorage.getItem("token");
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/properties`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-      if (res.ok) {
-        setIsAddModalOpen(false);
-        setFormData(blankForm());
-        fetchProperties();
-      } else if (res.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        window.location.href = "/login";
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        toast.error(errData.error || "Failed to add listing. Please try again.");
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleZillowAutofill = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!zillowId) { toast.error(X.catalog.zillowMissing); return; }
-    
-    setIsZillowLoading(true);
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/integrations/zillow/fetch?zpid=${zillowId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (res.ok) {
-        const { data } = await res.json();
-        const addressParts = data.address.split(", ");
-        
-        setFormData(prev => ({
-          ...prev,
-          address: addressParts[0] || "",
-          city: addressParts[1] || "",
-          state: addressParts[2]?.split(" ")[0] || "",
-          zip: addressParts[2]?.split(" ")[1] || "",
-          price: data.price ? String(data.price) : prev.price,
-          beds: data.beds ? String(data.beds) : prev.beds,
-          baths: data.baths ? String(data.baths) : prev.baths,
-          sqft: data.sqft ? String(data.sqft) : prev.sqft
-        }));
-        // alert(`Autofilled data from Zillow for property ID: ${zillowId}`);
-      } else {
-        toast.error(X.catalog.zillowFailed);
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error(X.catalog.networkError);
-    } finally {
-      setIsZillowLoading(false);
     }
   };
 
@@ -361,14 +262,9 @@ export default function ListingsPage() {
           className="px-4 py-2.5 bg-background border border-border/60 rounded-xl font-sans text-base text-foreground/80 outline-none cursor-pointer focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-sm appearance-none md:w-48"
         >
           <option value="ALL">{t.listings.filters.allStatuses}</option>
-          <option value="ACTIVE">{t.listings.modal.statusActive}</option>
-          <option value="COMING_SOON">
-            {t.listings.modal.statusComingSoon}
-          </option>
-          <option value="IN_CONTRACT">
-            {t.listings.modal.statusInContract}
-          </option>
-          <option value="SOLD">{t.listings.modal.statusSold}</option>
+          {["ACTIVE", "COMING_SOON", "RESERVED", "IN_CONTRACT", "SOLD", "RENTED", "WITHDRAWN"].map((st) => (
+            <option key={st} value={st}>{label(X.labels.propertyStatus, st)}</option>
+          ))}
         </select><button type="button" onClick={() => { setCsvRows([]); setIsImportModalOpen(true); }} className="px-4 py-2.5 bg-surface border border-border rounded-xl text-sm font-semibold text-foreground hover:bg-background transition-colors whitespace-nowrap">{X.leadRouting.csvImportBtn}</button>
         <select className="hidden">
         </select>
@@ -407,7 +303,7 @@ export default function ListingsPage() {
                   />
                 ) : (
                   <span className="text-3xl text-foreground/20 font-sans font-bold">
-                    No Image
+                    {X.labels.noImage}
                   </span>
                 )}
                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-black/40 to-transparent pointer-events-none" />
@@ -418,24 +314,21 @@ export default function ListingsPage() {
                                         ${prop.status === "IN_CONTRACT" ? "bg-black/60" : ""}
                                         ${prop.status === "SOLD" ? "bg-green-600/80" : ""}
                                         ${prop.status === "COMING_SOON" ? "bg-blue-600/80" : ""}
+                                        ${prop.status === "RESERVED" ? "bg-amber-600/80" : ""}
+                                        ${prop.status === "RENTED" ? "bg-green-700/80" : ""}
+                                        ${prop.status === "WITHDRAWN" || prop.status === "EXPIRED" ? "bg-black/60" : ""}
                                     `}
                   >
-                    {prop.status === "IN_CONTRACT"
-                      ? t.listings.modal.statusInContract
-                      : prop.status === "ACTIVE"
-                        ? t.listings.modal.statusActive
-                        : prop.status === "SOLD"
-                          ? t.listings.modal.statusSold
-                          : t.listings.modal.statusComingSoon}
+                    {label(X.labels.propertyStatus, prop.status)}
                   </span>
                 </div>
               </div>
               <div className="p-6 flex flex-col flex-1">
                 <h3 className="font-sans text-xl font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors duration-300">
-                  {prop.address}
+                  {prop.address || prop.locality || (X.catalog.propertyTypes as Record<string, string>)[prop.propertyType] || prop.city}
                 </h3>
                 <p className="font-sans text-foreground/60 text-base font-medium mt-1">
-                  {prop.city}, {prop.state} {prop.zip}
+                  {[prop.address ? prop.locality : null, prop.city, prop.state && prop.state !== prop.city ? prop.state : null].filter(Boolean).join(", ")}{prop.zip ? ` ${prop.zip}` : ""}
                 </p>
 
                 <div className="mt-6 flex items-center gap-6 text-base text-foreground/80 border-b border-border/40 pb-6 font-sans">
@@ -443,35 +336,41 @@ export default function ListingsPage() {
                     <span className="text-sm font-medium text-foreground/50">
                       {t.listings.card.beds}
                     </span>
-                    <span className="font-sans text-lg font-semibold">{prop.beds}</span>
+                    <span className="font-sans text-lg font-semibold">{prop.beds ?? "-"}</span>
                   </div>
                   <div className="w-px h-8 bg-border/40" />
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-medium text-foreground/50">
                       {t.listings.card.baths}
                     </span>
-                    <span className="font-sans text-lg font-semibold">{prop.baths}</span>
+                    <span className="font-sans text-lg font-semibold">{prop.baths ?? "-"}</span>
                   </div>
                   <div className="w-px h-8 bg-border/40" />
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-medium text-foreground/50">
-                      {t.listings.card.sqft}
+                      {prop.builtAreaM2 == null && prop.landArea != null ? X.propertyForm.landArea : t.listings.card.sqft}
                     </span>
                     <span className="font-sans text-lg font-semibold">
-                      {prop.sqft || "-"}
+                      {prop.builtAreaM2 != null ? formatNumber(prop.builtAreaM2)
+                        : prop.landArea != null ? `${formatNumber(prop.landArea)} ${prop.landAreaUnit === "HA" ? X.propertyForm.unitHa : X.propertyForm.unitM2}`
+                        : prop.sqft ?? "-"}
                     </span>
                   </div>
                 </div>
 
                 <div className="mt-6 flex items-end justify-between mt-auto pt-2">
-                  <span className="font-sans text-2xl font-bold text-foreground tracking-tight">
-                    {new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                      minimumFractionDigits: 0,
-                    }).format(prop.price)}
+                  <span className="font-sans text-xl font-bold text-foreground tracking-tight flex flex-col">
+                    {(activePrices(prop.prices).length ? activePrices(prop.prices) : [{ operation: "SALE", amount: prop.price, currency: "USD" } as PriceRow]).map((p) => (
+                      <span key={p.operation}>{formatPrice(p, X.propertyForm)}</span>
+                    ))}
                   </span>
                   <div className="flex items-center gap-4">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setFormFor(prop.id); }}
+                      className="font-sans text-sm font-medium text-foreground/60 hover:text-foreground transition-colors duration-300"
+                    >
+                      {X.propertyForm.edit}
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -555,291 +454,13 @@ export default function ListingsPage() {
         </div>
       )}
 
-      {/* Add Property Modal Overlay */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-300 p-4">
-          <div className="bg-background ring-1 ring-border/50 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] rounded-3xl">
-            <div className="p-8 border-b border-border/40 flex justify-between items-center bg-surface/30">
-              <h2 className="font-sans text-2xl font-semibold text-foreground">
-                {t.listings.modal.title}
-              </h2>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="text-foreground/40 hover:text-foreground text-3xl font-light transition-colors leading-none"
-              >
-                &times;
-              </button>
-            </div>
-            <form
-              onSubmit={handleAddProperty}
-              className="p-8 overflow-y-auto space-y-6"
-            >
-              
-              {/* Zillow import: a New York tool, shown only with the brokerage's "New York concepts" setting */}
-              {policies.properties.usStyleDeal && <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-6 mb-8 flex flex-col md:flex-row gap-4 items-end animate-in fade-in duration-500">
-                <div className="flex-1 w-full">
-                  <label className="block font-sans text-sm font-semibold text-blue-900/60 mb-2">
-                    {X.catalog.zillowTitle}
-                  </label>
-                  <input
-                    type="text"
-                    value={zillowId}
-                    onChange={(e) => setZillowId(e.target.value)}
-                    className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl text-base text-blue-900 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition-all placeholder:text-blue-900/30 shadow-sm"
-                    placeholder={X.catalog.zillowPlaceholder}
-                  />
-                </div>
-                <button
-                  onClick={handleZillowAutofill}
-                  disabled={isZillowLoading}
-                  type="button"
-                  className="w-full md:w-auto px-6 py-3 bg-blue-600 text-white rounded-xl text-base font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-md whitespace-nowrap flex-shrink-0"
-                >
-                  {isZillowLoading ? X.catalog.zillowLoading : X.catalog.zillowBtn}
-                </button>
-              </div>}
-
-              <div>
-                <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                  {t.listings.modal.street}
-                </label>
-                <input
-                  required
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  type="text"
-                  className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-foreground/30 shadow-sm"
-                  placeholder={X.labels.addressPlaceholder}
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                    {t.listings.modal.city}
-                  </label>
-                  <input
-                    required
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    type="text"
-                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                    {t.listings.modal.state}
-                  </label>
-                  <select
-                    name="state"
-                    value={formData.state}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all appearance-none cursor-pointer shadow-sm"
-                  >
-                    <option value="">{X.catalog.choose}</option>
-                    {[...DEPARTMENTS_UY, ...(formData.state && !(DEPARTMENTS_UY as readonly string[]).includes(formData.state) ? [formData.state] : [])].map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                    {t.listings.modal.zip}
-                  </label>
-                  <input
-                    required
-                    name="zip"
-                    value={formData.zip}
-                    onChange={handleChange}
-                    type="text"
-                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                    {t.listings.modal.price}
-                  </label>
-                  <input
-                    required
-                    name="price"
-                    value={formData.price}
-                    onChange={handleChange}
-                    type="number"
-                    min="0"
-                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-sans placeholder:text-foreground/30 shadow-sm"
-                    placeholder="1500000"
-                  />
-                </div>
-                <div>
-                  <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                    {t.listings.modal.sqft}{star("sqft")}
-                  </label>
-                  <input
-                    required={isReq("sqft")}
-                    name="sqft"
-                    value={formData.sqft}
-                    onChange={handleChange}
-                    type="number"
-                    min="0"
-                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-sans placeholder:text-foreground/30 shadow-sm"
-                    placeholder="1200"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                    {t.listings.modal.beds}
-                  </label>
-                  <input
-                    required
-                    name="beds"
-                    value={formData.beds}
-                    onChange={handleChange}
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-sans placeholder:text-foreground/30 shadow-sm"
-                    placeholder="2"
-                  />
-                </div>
-                <div>
-                  <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                    {t.listings.modal.baths}
-                  </label>
-                  <input
-                    required
-                    name="baths"
-                    value={formData.baths}
-                    onChange={handleChange}
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-sans placeholder:text-foreground/30 shadow-sm"
-                    placeholder="2"
-                  />
-                </div>
-                <div>
-                  <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                    {t.listings.modal.status}
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    disabled={photoRuleActive}
-                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all appearance-none cursor-pointer shadow-sm disabled:opacity-60"
-                  >
-                    <option value="COMING_SOON">
-                      {t.listings.modal.statusComingSoon}
-                    </option>
-                    <option value="ACTIVE">
-                      {t.listings.modal.statusActive}
-                    </option>
-                    <option value="IN_CONTRACT">
-                      {t.listings.modal.statusInContract}
-                    </option>
-                    <option value="SOLD">{t.listings.modal.statusSold}</option>
-                  </select>
-                </div>
-              </div>
-
-              {photoRuleActive && (
-                <p className="text-sm text-foreground/60 -mt-2">{fmt(PX.photoRuleHint, { n: lp.photosRequiredToActivate })}</p>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                    {PX.field.propertyType}{star("propertyType")}
-                  </label>
-                  <select
-                    name="propertyType"
-                    value={formData.propertyType}
-                    onChange={handleChange}
-                    required={isReq("propertyType")}
-                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all appearance-none cursor-pointer shadow-sm"
-                  >
-                    <option value="">—</option>
-                    {/* The brokerage's catalog (Settings > Properties); a legacy value already saved stays selectable */}
-                    {[...policies.properties.propertyTypes, ...(formData.propertyType && !policies.properties.propertyTypes.includes(formData.propertyType) ? [formData.propertyType] : [])].map((v) => (
-                      <option key={v} value={v}>{(X.catalog.propertyTypes as Record<string, string>)[v] ?? v.replace("_", " ")}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                    {PX.field.neighborhood}{star("neighborhood")}
-                  </label>
-                  <input
-                    name="neighborhood"
-                    value={formData.neighborhood}
-                    onChange={handleChange}
-                    required={isReq("neighborhood")}
-                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-sans shadow-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                    {PX.field.yearBuilt}{star("yearBuilt")}
-                  </label>
-                  <input
-                    name="yearBuilt"
-                    value={formData.yearBuilt}
-                    onChange={handleChange}
-                    required={isReq("yearBuilt")}
-                    type="number"
-                    min="1600"
-                    max="2100"
-                    className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-sans shadow-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-sans text-sm font-semibold text-foreground/60 mb-2">
-                  {PX.field.description}{star("description")}
-                  {lp.descriptionMaxChars > 0 && (
-                    <span className="font-normal text-foreground/40"> ({formData.description.length}/{lp.descriptionMaxChars})</span>
-                  )}
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  required={isReq("description")}
-                  maxLength={lp.descriptionMaxChars > 0 ? lp.descriptionMaxChars : undefined}
-                  rows={4}
-                  className="w-full px-4 py-3 bg-background border border-border/60 rounded-xl text-base text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-sans shadow-sm resize-none"
-                />
-              </div>
-
-              <div className="pt-6 flex justify-end gap-3 mt-8 border-t border-border/40">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-6 py-2.5 bg-surface border border-border/60 text-foreground/70 rounded-xl text-base font-semibold hover:text-foreground transition-colors shadow-sm"
-                >
-                  {t.listings.modal.cancel}
-                </button>
-                <button
-                  disabled={isSubmitting}
-                  type="submit"
-                  className="px-6 py-2.5 bg-primary text-background rounded-xl text-base font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 shadow-md"
-                >
-                  {isSubmitting
-                    ? t.listings.modal.saving
-                    : t.listings.modal.save}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Create / edit listing: Details, Prices (per operation) and Location (spec 6, phase F3) */}
+      {formFor !== undefined && (
+        <PropertyForm
+          propertyId={formFor}
+          onClose={() => setFormFor(undefined)}
+          onSaved={() => { setFormFor(undefined); fetchProperties(currentPage); }}
+        />
       )}
 
       {/* Media Asset Modal */}

@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { isManager } from '../lib/access';
 import { deleteUploadedFile } from '../lib/storage';
+import { createWebpVariants, variantKeys } from '../lib/images';
 
 const router = express.Router();
 const TYPES = ['image', 'video', 'floorplan', '3d_tour'];
@@ -54,6 +55,19 @@ router.post('/', async (req: AuthRequest, res) => {
             orgId: user.orgId,
         },
     });
+    // Uploaded photos (not external links) get WebP copies in 3 sizes; the original stays as it was
+    if (media.type === 'image' && media.storageKey) {
+        const proto = (req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0].trim() || req.protocol;
+        const base = `${proto}://${req.get('host') || 'localhost:4000'}`;
+        const made = await createWebpVariants(media.storageKey, user.orgId, id => `${base}/api/uploads/public/${id}`);
+        if (made) {
+            const withVariants = await prisma.mediaAsset.update({
+                where: { id: media.id },
+                data: { variants: made.variants as any, width: made.width || null, height: made.height || null },
+            });
+            return res.status(201).json(withVariants);
+        }
+    }
     res.status(201).json(media);
 });
 
@@ -95,6 +109,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
     if (media.storageKey) {
         await deleteUploadedFile(media.storageKey, user.orgId);
     }
+    for (const key of variantKeys(media.variants)) await deleteUploadedFile(key, user.orgId);
     res.json({ message: 'Media deleted' });
 });
 

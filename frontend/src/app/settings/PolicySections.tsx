@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
 import { useSettings, OrgPolicies } from "@/lib/settings/useSettings";
 import { INPUT_CLS, SELECT_CLS, TEXTAREA_CLS, Toggle, SectionHeader, SettingRow, SubTabs } from "./ui";
+import { PROPERTY_TYPES_UY, PROPERTY_TYPES_LEGACY, AMENITIES_UY } from "@/lib/catalogs";
 
 /**
  * Settings > CRM, Properties, Finance, Appointments and Documents.
@@ -223,8 +224,10 @@ export function CrmSettings() {
 // ─── Properties ──────────────────────────────────────────────────────────────────
 
 export function PropertiesSettings() {
-  const X = useExtra().policy;
+  const XE = useExtra();
+  const X = XE.policy;
   const P = X.properties;
+  const U = XE.policyUy;
   const { policies, preferences, savePolicies, savePreferences } = useSettings();
   const p = policies.properties, u = preferences.properties;
 
@@ -235,7 +238,8 @@ export function PropertiesSettings() {
       orgTab={(canEdit) => (
         <DraftForm
           key={JSON.stringify(p)}
-          initial={{ whoCanCreate: p.whoCanCreate, requiredFields: p.requiredFields, photosRequired: str(p.photosRequiredToActivate), maxPhotos: str(p.maxPhotosPerListing), descMax: str(p.descriptionMaxChars) }}
+          initial={{ whoCanCreate: p.whoCanCreate, requiredFields: p.requiredFields, photosRequired: str(p.photosRequiredToActivate), maxPhotos: str(p.maxPhotosPerListing), descMax: str(p.descriptionMaxChars),
+            propertyTypes: p.propertyTypes, amenities: p.amenities, usStyleDeal: p.usStyleDeal }}
           canEdit={canEdit}
           saveLabel={X.save}
           onSave={async (d) => {
@@ -245,6 +249,9 @@ export function PropertiesSettings() {
               photosRequiredToActivate: num(d.photosRequired),
               maxPhotosPerListing: num(d.maxPhotos),
               descriptionMaxChars: num(d.descMax),
+              propertyTypes: d.propertyTypes,
+              amenities: d.amenities,
+              usStyleDeal: d.usStyleDeal,
             } });
           }}
         >
@@ -257,7 +264,21 @@ export function PropertiesSettings() {
                 </select>
               </SettingRow>
               <SettingRow label={P.requiredFields} description={P.requiredFieldsDesc}>
-                <CheckList options={["sqft", "propertyType", "neighborhood", "description", "yearBuilt"]} labels={P.field} value={d.requiredFields} onChange={(v) => set({ requiredFields: v })} disabled={!canEdit} />
+                {/* The type is always required now; the New York fields only show with the New York setting */}
+                <CheckList
+                  options={["beds", "baths", "builtAreaM2", "landArea", "locality", "state", "code", "padron", "description", "yearBuilt", ...(d.usStyleDeal ? ["sqft", "neighborhood"] : [])]}
+                  labels={{ ...P.field, ...U.field }} value={d.requiredFields} onChange={(v) => set({ requiredFields: v })} disabled={!canEdit} />
+              </SettingRow>
+              <SettingRow label={U.propertyTypes} description={U.propertyTypesDesc}>
+                <CheckList options={[...PROPERTY_TYPES_UY, ...(d.usStyleDeal ? PROPERTY_TYPES_LEGACY : PROPERTY_TYPES_LEGACY.filter(tp => d.propertyTypes.includes(tp)))]}
+                  labels={XE.catalog.propertyTypes} value={d.propertyTypes} onChange={(v) => set({ propertyTypes: v })} disabled={!canEdit} />
+              </SettingRow>
+              <SettingRow label={U.amenities} description={U.amenitiesDesc}>
+                <CheckList options={[...AMENITIES_UY, ...d.amenities.filter(a => !(AMENITIES_UY as readonly string[]).includes(a))]}
+                  labels={XE.catalog.amenities} value={d.amenities} onChange={(v) => set({ amenities: v })} disabled={!canEdit} />
+              </SettingRow>
+              <SettingRow label={U.usStyleDeal} description={U.usStyleDealDesc}>
+                <Toggle checked={d.usStyleDeal} onChange={(v) => set({ usStyleDeal: v })} disabled={!canEdit} />
               </SettingRow>
               <SettingRow label={P.photosRequired} description={`${P.photosRequiredDesc} (${X.noLimit})`}>
                 <NumberInput value={d.photosRequired} onChange={(v) => set({ photosRequired: v })} min={0} max={30} disabled={!canEdit} />

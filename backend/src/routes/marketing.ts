@@ -18,8 +18,8 @@ async function buildContext(req: AuthRequest, propertyId?: string, clientId?: st
         const p = await prisma.property.findFirst({ where: { id: propertyId, orgId: user.orgId } });
         if (!p) return { error: 'Property not found' };
         lines.push('Property:',
-            `  Address: ${p.address}, ${p.city}, ${p.state} ${p.zip}`,
-            `  Price: $${p.price.toLocaleString()} | ${p.beds} bed / ${p.baths} bath${p.sqft ? ` | ${p.sqft} sq ft` : ''}`,
+            `  Address: ${[p.address, p.locality, p.city, p.state].filter(Boolean).join(', ')}`,
+            `  Price: ${p.price != null ? `$${p.price.toLocaleString()}` : 'on request'}${p.beds != null ? ` | ${p.beds} bed` : ''}${p.baths != null ? ` / ${p.baths} bath` : ''}${p.builtAreaM2 ? ` | ${p.builtAreaM2} m²` : p.sqft ? ` | ${p.sqft} sq ft` : ''}${p.landArea ? ` | land ${p.landArea} ${p.landAreaUnit === 'HA' ? 'ha' : 'm²'}` : ''}`,
             p.propertyType ? `  Type: ${p.propertyType}` : '',
             p.neighborhood ? `  Neighbourhood: ${p.neighborhood}` : '',
             p.yearBuilt ? `  Year built: ${p.yearBuilt}` : '',
