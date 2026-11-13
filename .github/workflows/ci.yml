@@ -38,6 +38,7 @@ jobs:
       PORT: 4000
       NODE_ENV: development
       DISABLE_JOBS: "true"
+      PLATFORM_DOMAIN: plataforma.test
       SMOKE_MODULES: ${{ matrix.modules }}
       MODULES_ALL: publicSite,publicMap,crmLeads,leadRouting,tasks,appointments,documents,rentals,deals,commissions,marketing,referrals,gifts,aiAssistant,billing,googleOAuth,migrator
 
@@ -125,3 +126,31 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4000/api
         run: npm run build
+
+  docker-images:
+    name: Docker images build (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            context: backend
+          - image: web
+            context: frontend
+          - image: backup
+            context: deploy/backup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Build (not pushed; the Release workflow publishes on tags)
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://app.plataforma.test

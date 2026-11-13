@@ -166,7 +166,7 @@ export default function SettingsPage() {
   const ls = <T,>(key: string, def: T): T => { try { return { ...def, ...JSON.parse(localStorage.getItem(key) || "{}") }; } catch { return def; } };
   // Profile and org details are server-backed (loaded below), not localStorage
   const [profile,     setProfile]     = React.useState(DEFAULT_PROFILE);
-  const [orgSettings, setOrgSettings] = React.useState({ companyName: "", website: "", address: "", licenseNumber: "", phone: "", logoUrl: "", brandColor: "", slug: "" });
+  const [orgSettings, setOrgSettings] = React.useState({ companyName: "", website: "", address: "", licenseNumber: "", phone: "", logoUrl: "", brandColor: "", slug: "", customDomain: "" });
   const XE = useExtra();
   const XS = XE.settings;
   const [orgPlan,     setOrgPlan]     = React.useState<{ subscription: string; seats: { limit: number | null; used: number; pendingInvites: number } } | null>(null);
@@ -224,7 +224,7 @@ export default function SettingsPage() {
         setOrgSettings({
           companyName: o.name ?? "", website: o.website ?? "", address: o.address ?? "",
           licenseNumber: o.licenseNumber ?? "", phone: o.phone ?? "", logoUrl: o.logoUrl ?? "",
-          slug: o.slug ?? "", brandColor: o.brandColor ?? "",
+          slug: o.slug ?? "", brandColor: o.brandColor ?? "", customDomain: o.customDomain ?? "",
         });
         setOrgPlan({ subscription: o.subscription, seats: o.seats });
       })
@@ -312,10 +312,11 @@ export default function SettingsPage() {
       const res = await fetch(`${API_BASE}/api/settings/organization`, {
         method: "PATCH", headers: authHeaders(),
         body: JSON.stringify({ name: orgSettings.companyName, website: orgSettings.website, address: orgSettings.address,
-          phone: orgSettings.phone, licenseNumber: orgSettings.licenseNumber, logoUrl: orgSettings.logoUrl, slug: orgSettings.slug, brandColor: orgSettings.brandColor }),
+          phone: orgSettings.phone, licenseNumber: orgSettings.licenseNumber, logoUrl: orgSettings.logoUrl, slug: orgSettings.slug, brandColor: orgSettings.brandColor,
+          customDomain: orgSettings.customDomain }),
       });
       const d = await res.json();
-      if (res.ok) { if (d.slug) setOrgSettings((prev) => ({ ...prev, slug: d.slug, brandColor: d.brandColor ?? "" })); toast.success(Sc.saveChanges ?? XE.common.saved); }
+      if (res.ok) { if (d.slug) setOrgSettings((prev) => ({ ...prev, slug: d.slug, brandColor: d.brandColor ?? "", customDomain: d.customDomain ?? "" })); toast.success(Sc.saveChanges ?? XE.common.saved); }
       else toast.error(d.error || XS.saveOrgFailed);
     } catch { toast.error(t.login.serverError); } finally { setSaving(false); }
   };
@@ -534,6 +535,10 @@ export default function SettingsPage() {
         </LockedRow>
         <LockedRow label={XS.customSlugLabel} description={XS.customSlugHelp} minRoleLabel={roleLabel("FIRMADMIN")} canEdit={isFirmAdmin}>
           <input className={INPUT_CLS} style={{ width: 220 }} value={orgSettings.slug} onChange={(e) => setOrgSettings({ ...orgSettings, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })} placeholder="premier-nyc-realty" />
+        </LockedRow>
+        <LockedRow label={XE.domain.label} description={XE.domain.help} minRoleLabel={roleLabel("FIRMADMIN")} canEdit={isFirmAdmin}>
+          <input className={INPUT_CLS} style={{ width: 240 }} value={orgSettings.customDomain} placeholder={XE.domain.placeholder}
+            onChange={(e) => setOrgSettings({ ...orgSettings, customDomain: e.target.value.trim().toLowerCase() })} />
         </LockedRow>
         <LockedRow label={XS.brandColorLabel} description={XS.brandColorHelp} minRoleLabel={roleLabel("FIRMADMIN")} canEdit={isFirmAdmin}>
           <div className="flex items-center gap-2">

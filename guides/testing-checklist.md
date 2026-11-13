@@ -122,4 +122,14 @@ happen; note anything that doesn't.
 - [ ] Importar un CSV con una fila sin ciudad: esa fila se informa como error y las demás se importan.
 - [ ] Las propiedades que ya existían siguen mostrando su precio.
 
+## 13. Dominio propio y servidor (fork Uruguay)
+
+- [ ] Ajustes > Datos de la inmobiliaria > Dominio propio: cargar `castroymeirelles.com.uy`; se guarda en
+  minúscula y sin `https://` ni `www.`. Otra inmobiliaria no puede cargar el mismo dominio.
+- [ ] Con el DNS apuntando al servidor, `https://dominio` y `https://www.dominio` abren con candado; un dominio
+  no cargado no abre (sin certificado).
+- [ ] Desde el dominio de la inmobiliaria no se puede usar la API del panel (por ejemplo `/api/clients` da 404).
+- [ ] Un release nuevo (tag) aparece en `https://app.PLATFORM_DOMAIN/api/health` con su versión.
+- [ ] Prueba mensual de restauración según `guides/restore.md`, anotada en su tabla.
+
 Report problems with: the page, what you clicked, what you expected, what happened, and a screenshot.

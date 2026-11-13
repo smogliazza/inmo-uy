@@ -91,6 +91,11 @@ el alcance de cada fase. Si algo de este archivo la contradice, avisá en el PR.
   «Consultar»). Se guardan siempre con `savePrices()` de `backend/src/lib/listing.ts`, que mantiene
   `Property.price` (heredado) sincronizado para reportes y comisiones. Nunca sumar importes de monedas distintas.
   Las coordenadas públicas salen por `publicCoords()` (respeta `geoPrecision`). Fotos: `createWebpVariants()`.
+- **Producción** (fase F4): `docker-compose.prod.yml` + `deploy/` (Caddyfile, `deploy.sh`, backup, ejemplos de
+  `.env`). Imágenes: `backend/Dockerfile`, `frontend/Dockerfile` (Next `standalone`), `deploy/backup/Dockerfile`.
+  Los `NEXT_PUBLIC_*` se fijan al construir la imagen web (workflow `release.yml`). Caddy solo emite HTTPS para
+  hosts que aprueba `GET /api/public/domain-check` (`backend/src/routes/public.ts`); desde los dominios de las
+  inmobiliarias solo llega la API pública. Guías: `guides/droplet-setup.md`, `guides/restore.md`.
 - Priorizar lo que resuelve problemas concretos de inmobiliarias y agentes, sin agregar peso innecesario.
 - El repo es **público** y su historial no se puede borrar de verdad: nunca commitear secretos, cadenas de
   conexión ni contraseñas, ni documentos (Word u otros binarios) que los contengan. Los pendientes que
@@ -136,6 +141,8 @@ el alcance de cada fase. Si algo de este archivo la contradice, avisá en el PR.
      páginas al 100%) y `git grep` para confirmar que no quedan marcas o precios viejos.
 
 ## Entorno local
+
+Para producción ver `guides/droplet-setup.md`. En local:
 
 ```bash
 cp .env.example .env        # completar las variables marcadas como obligatorias

@@ -36,6 +36,9 @@ services:
         sync: false
       - key: GEOCODER_USER_AGENT
         sync: false
+      # --- Platform base domain (app.DOMAIN, {slug}.DOMAIN) ---
+      - key: PLATFORM_DOMAIN
+        sync: false
       # --- Platform name used in emails ---
       - key: PLATFORM_NAME
         sync: false

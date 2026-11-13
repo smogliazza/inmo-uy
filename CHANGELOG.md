@@ -24,6 +24,14 @@
 > Desde el fork para Uruguay (`smogliazza/inmo-uy`) las entradas nuevas se escriben en español.
 
 #### Agregado (fork Uruguay)
+- **Dominio propio por inmobiliaria** en Ajustes > Datos de la inmobiliaria. Cuando el DNS apunta al servidor,
+  el certificado HTTPS se emite solo en la primera visita; los dominios que no están cargados no reciben
+  certificado.
+- **Producción en un Droplet de DigitalOcean** (`docker-compose.prod.yml`): Caddy con HTTPS automático, web,
+  API, PostgreSQL 16 ajustado para 2 GB y límites de memoria por contenedor. Cada tag `v*` publica las imágenes
+  en GHCR y hace el deploy; si la versión nueva no responde, vuelve sola a la anterior.
+- **Backup nocturno cifrado a Cloudflare R2** (03:30, hora de Montevideo; 14 diarios y 8 semanales) con guía
+  de restauración probada (`guides/restore.md`). Guía de alta del servidor: `guides/droplet-setup.md`.
 - **Propiedades para Uruguay.** Una propiedad puede estar en venta y en alquiler a la vez, cada operación con su
   precio y su moneda (US$, $, UI, UR) o «Consultar». Campos nuevos: código propio, zona/localidad, superficie
   edificada en m², terreno en m² o hectáreas, garajes, comodidades, gastos comunes con su moneda, padrón,
@@ -463,6 +471,9 @@
 | 前端<br>*Frontend* | `NEXT_PUBLIC_FEATURED_BROKERAGE_SLUG` | 可选：首页 “Browse Listings” 链接到哪家公司<br>*Optional: which company the home page “Browse Listings” links to* |
 | 后端<br>*Backend* | `SENTRY_DSN` | 可选：后端 Sentry 错误上报 DSN，未填时静默不启用<br>*Optional: backend Sentry DSN; silently disabled when empty* |
 | 前端<br>*Frontend* | `NEXT_PUBLIC_SENTRY_DSN` | 可选：前端 Sentry 错误上报 DSN，未填时静默不启用<br>*Optional: frontend Sentry DSN; silently disabled when empty* |
+| Backend / Caddy | `PLATFORM_DOMAIN` | Fork Uruguay: dominio de la plataforma (panel en `app.`, sitios en `{slug}.`); valida los dominios que reciben HTTPS |
+| Servidor (`.env`) | `ACME_EMAIL` / `GHCR_OWNER` / `TAG` | Fork Uruguay: email para Let's Encrypt, dueño de las imágenes en GHCR y versión a correr (la pone `deploy.sh`) |
+| Backup | `BACKUP_R2_BUCKET` / `BACKUP_ENCRYPTION_KEY` / `BACKUP_TIME` / `KEEP_DAILY` / `KEEP_WEEKLY` / `BACKUP_HEALTHCHECK_URL` | Fork Uruguay: destino, clave de cifrado (guardar una copia fuera del servidor), horario, retención y aviso de backup (`deploy/backup.env.example`) |
 | Backend | `NOMINATIM_URL` / `GEOCODER_USER_AGENT` | Fork Uruguay: búsqueda de direcciones para ubicar el pin (Nominatim, 1 consulta por segundo; el User-Agent debe identificar a la plataforma con un contacto) |
 | Frontend | `NEXT_PUBLIC_MAP_STYLE_URL` | Fork Uruguay: estilo del mapa (por defecto OpenFreeMap «liberty», sin clave) |
 | Backend | `PLATFORM_NAME` | Fork Uruguay: nombre de la plataforma en los emails (por defecto «Plataforma inmobiliaria») |

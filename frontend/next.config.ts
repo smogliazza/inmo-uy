@@ -53,6 +53,8 @@ const cspHeaderKey =
     : "Content-Security-Policy-Report-Only";
 
 const nextConfig: NextConfig = {
+  // Docker image (frontend/Dockerfile) builds a self-contained server; Vercel ignores this when unset
+  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
   // Allow images from common real estate image sources
   images: {
     remotePatterns: [

@@ -54,6 +54,7 @@ import uploadsRoutes from './routes/uploads';
 import { authenticateToken, AuthRequest } from './middleware/authMiddleware';
 import { requireModule, moduleForcedOff, sendModuleDisabled } from './lib/modules';
 import modulesRoutes from './routes/modules';
+import publicRoutes from './routes/public';
 import { startReminderLoop } from './lib/reminders';
 import { runRelease } from './release';
 import { captureBackendException } from './lib/sentry';
@@ -91,6 +92,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/oauth', oauthRoutes); // googleOAuth is checked inside (no user yet)
 app.use('/api/modules', modulesRoutes);
+app.use('/api/public', publicRoutes); // domain-check for Caddy on-demand TLS (spec 3.2)
 
 // Protected Routes
 // Each optional module's router is gated with requireModule (404 module_disabled when off).

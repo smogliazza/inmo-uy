@@ -1,0 +1,113 @@
+name: Release
+
+# On every tag v* (spec 12.3): build the linux/amd64 images, publish them on GHCR with the tag and `latest`,
+# then deploy to the Droplet over SSH and check that /api/health reports the new version.
+#
+# Repository variables (Settings → Secrets and variables → Actions → Variables):
+#   PLATFORM_DOMAIN        e.g. plataforma.uy (the panel is app.PLATFORM_DOMAIN)
+#   PLATFORM_NAME          optional, shown in titles and emails
+# Secrets (only needed for the deploy job; without them the images are published and the deploy is skipped):
+#   DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (private key of a key used only for deploys), DEPLOY_KNOWN_HOSTS
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  check-version:
+    name: Tag matches appVersion
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compare tag and package.json appVersion
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          for f in backend/package.json frontend/package.json; do
+            v=$(node -p "require('./$f').appVersion || require('./$f').version")
+            if [ "$v" != "$tag" ]; then
+              echo "::error file=$f::appVersion $v does not match tag $GITHUB_REF_NAME (see guides/release-process.md)"
+              exit 1
+            fi
+          done
+
+  images:
+    name: Build & push ${{ matrix.image }}
+    needs: check-version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - image: api
+            context: backend
+          - image: web
+            context: frontend
+          - image: backup
+            context: deploy/backup
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image name (GHCR needs lower case)
+        id: name
+        run: echo "repo=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/inmo-uy-${{ matrix.image }}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.name.outputs.repo }}:${{ github.ref_name }}
+            ${{ steps.name.outputs.repo }}:latest
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          # Only the web image uses them (Next.js inlines NEXT_PUBLIC_* at build time)
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://app.${{ vars.PLATFORM_DOMAIN }}
+            NEXT_PUBLIC_SITE_URL=https://app.${{ vars.PLATFORM_DOMAIN }}
+            NEXT_PUBLIC_PLATFORM_NAME=${{ vars.PLATFORM_NAME }}
+
+  deploy:
+    name: Deploy to the Droplet
+    needs: images
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+    steps:
+      - name: Skip when the server is not configured yet
+        id: cfg
+        run: |
+          if [ -z "$DEPLOY_HOST" ]; then
+            echo "::notice::DEPLOY_HOST is not set: images were published, deploy skipped (guides/droplet-setup.md)."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.cfg.outputs.skip != 'true'
+      - name: SSH key
+        if: steps.cfg.outputs.skip != 'true'
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Copy the stack definition for this tag
+        if: steps.cfg.outputs.skip != 'true'
+        run: |
+          scp -i ~/.ssh/deploy docker-compose.prod.yml deploy/Caddyfile deploy/deploy.sh \
+            "${{ secrets.DEPLOY_USER }}@$DEPLOY_HOST:/opt/inmo-uy/"
+      - name: Deploy (rolls back by itself if the new version does not come up)
+        if: steps.cfg.outputs.skip != 'true'
+        run: ssh -i ~/.ssh/deploy "${{ secrets.DEPLOY_USER }}@$DEPLOY_HOST" "cd /opt/inmo-uy && chmod +x deploy.sh && ./deploy.sh ${{ github.ref_name }}"
+      - name: Check from outside (DNS + HTTPS + version)
+        if: steps.cfg.outputs.skip != 'true'
+        run: |
+          v=$(curl -fsS "https://app.${{ vars.PLATFORM_DOMAIN }}/api/health" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+          echo "Live version: $v"
+          [ "$v" = "${GITHUB_REF_NAME#v}" ]

@@ -16,10 +16,14 @@ __pycache__/
 read_excel.py
 read_xlsx_custom.py
 
-# Env files
+# Env files (also the production ones on the Droplet: .env.api, .env.web, .env.db, .env.backup)
 .env
 .env.local
 .env*.local
+.env.api
+.env.web
+.env.db
+.env.backup
 
 # OS
 .DS_Store

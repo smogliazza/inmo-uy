@@ -1362,6 +1362,39 @@ async function main() {
         assert.equal(upd.body.city, 'Salto');
     });
 
+    await step('domains: own domain from Settings, Caddy domain-check (on-demand TLS), platform subdomains', async () => {
+        const owner = await register('dom1');
+        const other = await register('dom2');
+        const domain = `castro-${run}.example.uy`;
+        const check = async (d: string) => (await call('GET', `/api/public/domain-check?domain=${encodeURIComponent(d)}`)).status;
+
+        assert.equal(await check(domain), 404, 'unknown domain: no certificate');
+        assert.equal((await call('PATCH', '/api/settings/organization', owner, { customDomain: 'not a domain' })).status, 400);
+        const set = await call('PATCH', '/api/settings/organization', owner, { customDomain: `https://WWW.${domain.toUpperCase()}/propiedades` });
+        assert.equal(set.status, 200, JSON.stringify(set.body));
+        assert.equal(set.body.customDomain, domain, 'stored bare and lower-case');
+        assert.equal(await check(domain), 200);
+        assert.equal(await check(`www.${domain}`), 200, 'www. works too');
+        assert.equal(await check(`sub.${domain}`), 404, 'other subdomains do not');
+        assert.equal((await call('PATCH', '/api/settings/organization', other, { customDomain: domain })).status, 409, 'one brokerage per domain');
+        assert.equal(await check('bad host!'), 404);
+
+        // {slug}.PLATFORM_DOMAIN and the reserved platform hosts (only when PLATFORM_DOMAIN is set)
+        const base = process.env.PLATFORM_DOMAIN;
+        if (base) {
+            const slug = (await call('GET', '/api/settings/organization', owner)).body.slug;
+            assert.equal(await check(`${slug}.${base}`), 200);
+            assert.equal(await check(`app.${base}`), 200);
+            assert.equal(await check(`nadie-${run}.${base}`), 404);
+            assert.equal(await check(`a.b.${base}`), 404, 'one level only');
+            assert.equal((await call('PATCH', '/api/settings/organization', owner, { customDomain: `x.${base}` })).status, 400, 'platform hosts cannot be claimed');
+        }
+
+        // Clearing it stops the certificate for new requests
+        assert.equal((await call('PATCH', '/api/settings/organization', owner, { customDomain: '' })).body.customDomain, null);
+        assert.equal(await check(domain), 404);
+    });
+
     await step('module system: list, permissions, per-brokerage override, dependencies, isolation, audit', async () => {
         const owner = a;
         const agent = await joinOrg(owner, 'modagent', 'AGENT');
