@@ -133,6 +133,9 @@ async function optionalOffSuite() {
         for (const [path, key] of GATED_ROUTES) assertModuleDisabled(await call('GET', path, a), key, path);
         const org = await call('GET', '/api/settings/organization', a);
         assertModuleDisabled(await call('GET', `/api/properties/public?b=${org.body.slug}`), 'publicSite', 'public listings');
+        assertModuleDisabled(await call('GET', `/api/public/site?site=${org.body.slug}`), 'publicSite', 'brokerage site');
+        assertModuleDisabled(await call('GET', `/api/public/listings/index?site=${org.body.slug}`), 'publicSite', 'site index');
+        assertModuleDisabled(await call('GET', '/api/site-settings', a), 'publicSite', 'site settings');
         assertModuleDisabled(await call('POST', '/api/oauth/google', undefined, { idToken: 'x' }), 'googleOAuth', 'google sign-in');
         // Without AI_ASSISTANT_ENABLED=true the assistant is forced off: no brokerage can turn it on
         const ai = (await moduleMap(a)).aiAssistant;
@@ -1393,6 +1396,164 @@ async function main() {
         // Clearing it stops the certificate for new requests
         assert.equal((await call('PATCH', '/api/settings/organization', owner, { customDomain: '' })).body.customDomain, null);
         assert.equal(await check(domain), 404);
+    });
+
+    await step('brokerage sites: profile by slug / host, compact index with ETag, listing page, inquiry with consent, events, isolation', async () => {
+        const owner = await register('site1');
+        const other = await register('site2');
+        const agent = (await joinOrg(owner, 'siteagent', 'AGENT')).token;
+        const slug = (await call('GET', '/api/settings/organization', owner)).body.slug;
+        const otherSlug = (await call('GET', '/api/settings/organization', other)).body.slug;
+        const domain = `site-${run}.example.uy`;
+        await call('PATCH', '/api/settings/organization', owner, { customDomain: domain, whatsapp: '099 991 525', brandColor: '#1F6F5C' });
+
+        // Site settings: validation, permissions, safe links only
+        assert.equal((await call('PUT', '/api/site-settings', agent, { config: { layout: 'hero' } })).status, 403, 'agents cannot edit the site');
+        assert.equal((await call('PUT', '/api/site-settings', owner, { config: { layout: 'neon' } })).status, 400);
+        assert.equal((await call('PUT', '/api/site-settings', owner, { config: { social: { instagram: 'javascript:alert(1)' } } })).status, 400);
+        assert.equal((await call('PUT', '/api/site-settings', owner, { config: { pages: [{ title: 'Privacidad', body: 'x' }] } })).status, 400, 'reserved page address');
+        const saved = await call('PUT', '/api/site-settings', owner, { config: {
+            layout: 'hero', font: 'serif', headline: '  Tu casa en Salto  ', email: 'info@castro.test',
+            social: { instagram: 'https://instagram.com/castro' }, hours: 'Lun a vie 9–18',
+            pages: [{ title: 'Quiénes somos', body: 'Desde 1985.' }, { title: 'Servicios', body: 'Tasaciones.' }],
+            banners: [{ title: 'Tasamos tu propiedad', href: '/p/servicios' }],
+        } });
+        assert.equal(saved.status, 200, JSON.stringify(saved.body));
+        assert.equal(saved.body.config.headline, 'Tu casa en Salto');
+        assert.equal(saved.body.config.pages[0].slug, 'quienes-somos');
+        assert.equal((await call('GET', '/api/site-settings', agent)).body.config.layout, 'hero', 'members can read it');
+
+        // Profile by slug and by host; unknown → 404; one of the two is required
+        const bySlug = await call('GET', `/api/public/site?site=${slug}`);
+        assert.equal(bySlug.status, 200, JSON.stringify(bySlug.body));
+        assert.equal(bySlug.body.whatsapp, '+59899991525');
+        assert.equal(bySlug.body.brandColor, '#1F6F5C');
+        assert.equal(bySlug.body.config.font, 'serif');
+        assert.equal(bySlug.body.url, `https://${domain}`);
+        assert.equal(bySlug.body.language, 'es');
+        assert.equal(bySlug.body.noindex, false);
+        assert.ok(!('id' in bySlug.body) && !('policies' in bySlug.body), 'no internal fields');
+        const byHost = await call('GET', `/api/public/site?host=www.${domain}`);
+        assert.equal(byHost.status, 200);
+        assert.equal(byHost.body.slug, slug);
+        assert.equal((await call('GET', `/api/public/site?host=nadie-${run}.example.uy`)).status, 404);
+        assert.equal((await call('GET', `/api/public/site?site=nadie-${run}`)).status, 404);
+        assert.equal((await call('GET', '/api/public/site')).status, 400);
+
+        // Listings: public ones only, prices per operation, approximate location shifted, hidden one without coordinates
+        const mk = (body: Record<string, unknown>, token = owner) => call('POST', '/api/properties', token, { propertyType: 'CASA', city: 'Salto', state: 'Salto', ...body });
+        const casa = await mk({ title: 'Hermosa casa céntrica', address: 'Uruguay 1234', locality: 'Centro', code: `C-${run}`, beds: 4, baths: 2, builtAreaM2: 180,
+            amenities: ['parrillero'], lat: -31.3833, lng: -57.9667, geoPrecision: 'APPROX',
+            prices: [{ operation: 'SALE', amount: 290000, currency: 'USD' }, { operation: 'RENT', amount: 25000, currency: 'UYU' }] });
+        assert.equal(casa.status, 201, JSON.stringify(casa.body));
+        assert.equal(casa.body.title, 'Hermosa casa céntrica');
+        assert.equal((await call('PATCH', `/api/properties/${casa.body.id}`, owner, { featured: true })).status, 200);
+        const campo = await mk({ propertyType: 'CAMPO_CHACRA', locality: 'Colonia Lavalleja', landArea: 120, landAreaUnit: 'HA', lat: -31.2, lng: -57.5, geoPrecision: 'HIDDEN',
+            prices: [{ operation: 'SALE', onRequest: true }] });
+        assert.equal(campo.status, 201, JSON.stringify(campo.body));
+        const hidden = await mk({ address: 'Oculta 1', isPublic: false, price: 1 });
+        const sold = await mk({ address: 'Vendida 1', price: 1 });
+        const soldPut = await call('PATCH', `/api/properties/${sold.body.id}`, owner, { status: 'SOLD' });
+        assert.equal(soldPut.status, 200, JSON.stringify(soldPut.body));
+        const foreign = await mk({ address: 'Ajena 1', code: `C-${run}`, price: 1 }, other);
+        assert.equal(foreign.status, 201, 'the same code in another brokerage');
+
+        const idxRes = await fetch(`${API}/api/public/listings/index?site=${slug}`);
+        assert.equal(idxRes.status, 200);
+        assert.match(idxRes.headers.get('cache-control') || '', /s-maxage=60/);
+        const etag = idxRes.headers.get('etag');
+        assert.ok(etag, 'ETag');
+        const idx = await idxRes.json() as any;
+        const ids = idx.items.map((i: any) => i.i);
+        assert.ok(ids.includes(casa.body.id) && ids.includes(campo.body.id));
+        assert.ok(!ids.includes(hidden.body.id), 'not public');
+        assert.ok(!ids.includes(sold.body.id), 'sold');
+        assert.ok(!ids.includes(foreign.body.id), 'other brokerage');
+        const ci = idx.items.find((i: any) => i.i === casa.body.id);
+        assert.deepEqual(ci.p, [['SALE', 290000, 'USD', null], ['RENT', 25000, 'UYU', 'MONTH']]);
+        assert.equal(ci.c, `C-${run}`);
+        assert.equal(ci.ti, 'Hermosa casa céntrica');
+        assert.equal(ci.ap, 1);
+        assert.notDeepEqual(ci.ll, [-31.3833, -57.9667], 'approximate location is shifted');
+        assert.equal(ci.f, 1);
+        assert.equal(ci.s, 'hermosa-casa-centrica-centro-salto');
+        const cp = idx.items.find((i: any) => i.i === campo.body.id);
+        assert.deepEqual(cp.p, [['SALE', null, 'USD', null]], '"Consultar"');
+        assert.equal(cp.ll, undefined, 'hidden location');
+        assert.equal(cp.lu, 'HA');
+        assert.equal(ids[0], casa.body.id, 'featured first');
+        const again = await fetch(`${API}/api/public/listings/index?site=${slug}`, { headers: { 'If-None-Match': etag! } });
+        assert.equal(again.status, 304, 'unchanged index → 304');
+        assert.equal((await call('GET', `/api/public/listings/index?host=${domain}`)).body.count, idx.count, 'same index by host');
+        assert.equal((await call('GET', `/api/public/listings/index?site=${otherSlug}`)).body.count, 1);
+
+        // Listing page by "<code>-<slug>", by code and by id; never another brokerage's
+        const page = await call('GET', `/api/public/listings/${ci.c}-${ci.s}?site=${slug}`);
+        assert.equal(page.status, 200, JSON.stringify(page.body));
+        assert.equal(page.body.id, casa.body.id);
+        assert.equal(page.body.ref, `C-${run}-hermosa-casa-centrica-centro-salto`);
+        assert.equal(page.body.address, null, 'no street address when the location is approximate');
+        assert.equal(page.body.approximate, true);
+        assert.equal(page.body.prices[0].amount, 290000);
+        assert.ok(!('orgId' in page.body) && !('agentId' in page.body));
+        assert.equal((await call('GET', `/api/public/listings/${encodeURIComponent(ci.c)}?site=${slug}`)).body.id, casa.body.id);
+        assert.equal((await call('GET', `/api/public/listings/${campo.body.id}?site=${slug}`)).status, 200);
+        assert.equal((await call('GET', `/api/public/listings/${foreign.body.id}?site=${slug}`)).status, 404, 'isolation: other brokerage by id');
+        assert.equal((await call('GET', `/api/public/listings/${casa.body.id}?site=${otherSlug}`)).status, 404, 'isolation: changing the site');
+        assert.equal((await call('GET', `/api/public/listings/${casa.body.id}?host=nadie-${run}.example.uy`)).status, 404, 'isolation: unknown host');
+        assert.equal((await call('GET', `/api/public/listings/${hidden.body.id}?site=${slug}`)).status, 404, 'not public');
+        // The other brokerage's own code answers its own listing
+        assert.equal((await call('GET', `/api/public/listings/${ci.c}?site=${otherSlug}`)).body.id, foreign.body.id);
+
+        // Legacy /public-listings/<id> → path on the new site (301 in the web app)
+        assert.equal((await call('GET', `/api/public/site?site=${slug}&listing=${casa.body.id}`)).body.listingPath, `/propiedades/${page.body.ref}`);
+        assert.equal((await call('GET', `/api/public/site?site=${slug}&listing=${foreign.body.id}`)).body.listingPath, null);
+
+        // Inquiry: consent required (Ley 18.331), honeypot, isolation, lead with consentAt
+        const inq = (id: string, body: Record<string, unknown>, site = slug) => call('POST', `/api/public/listings/${id}/inquiry?site=${site}`, undefined, body);
+        const noConsent = await inq(casa.body.id, { name: 'Lucía Pérez', phone: '098 123 456' });
+        assert.equal(noConsent.status, 400);
+        assert.equal(noConsent.body.code, 'CONSENT_REQUIRED');
+        assert.equal((await inq(casa.body.id, { name: 'Lucía Pérez', phone: '098 123 456', consent: true }, otherSlug)).status, 404, 'isolation: inquiry through another site');
+        assert.equal((await inq(foreign.body.id, { name: 'Lucía Pérez', phone: '098 123 456', consent: true })).status, 404, 'isolation: another brokerage’s listing');
+        const ok = await inq(casa.body.id, { name: 'Lucía Pérez', phone: '098 123 456', message: 'Me interesa', consent: true });
+        assert.equal(ok.status, 201, JSON.stringify(ok.body));
+        const bot = await inq(casa.body.id, { name: 'Bot', phone: '091 000 000', consent: true, website: 'spam.example' });
+        assert.equal(bot.status, 201, 'honeypot answers OK');
+        const lead = await db().client.findFirst({ where: { phone: '+59898123456', organization: { slug } } });
+        assert.ok(lead, 'lead created with the phone in E.164');
+        assert.equal(lead!.source, 'Sitio web');
+        assert.ok(lead!.consentAt, 'consent recorded');
+        assert.equal(await db().client.count({ where: { phone: '+59891000000' } }), 0, 'honeypot: nothing saved');
+        assert.equal(await db().client.count({ where: { phone: '+59898123456', organization: { slug: otherSlug } } }), 0);
+
+        // Contact click events
+        const ev = (body: Record<string, unknown>, site = slug) => call('POST', `/api/public/events?site=${site}`, undefined, body);
+        assert.equal((await ev({ type: 'whatsapp_click', propertyId: casa.body.id })).status, 204);
+        assert.equal((await ev({ type: 'whatsapp_click' })).status, 204, 'site-wide button');
+        assert.equal((await ev({ type: 'hack' })).status, 400);
+        assert.equal((await ev({ type: 'whatsapp_click', propertyId: casa.body.id }, otherSlug)).status, 404, 'isolation: event for another brokerage’s listing');
+        const orgId = (await db().organization.findUnique({ where: { slug }, select: { id: true } }))!.id;
+        assert.equal(await db().siteEvent.count({ where: { orgId, type: 'whatsapp_click' } }), 2);
+
+        // Demo brokerages: noindex; expired demos are not served
+        await db().organization.update({ where: { id: orgId }, data: { isDemo: true } });
+        assert.equal((await call('GET', `/api/public/site?site=${slug}`)).body.noindex, true);
+        await db().organization.update({ where: { id: orgId }, data: { demoExpiresAt: new Date(Date.now() - 1000) } });
+        assert.equal((await call('GET', `/api/public/site?site=${slug}`)).status, 404, 'expired demo');
+        assert.equal((await call('GET', `/api/public/listings/index?site=${slug}`)).status, 404);
+        await db().organization.update({ where: { id: orgId }, data: { isDemo: false, demoExpiresAt: null } });
+
+        // publicSite off: every site endpoint and Settings > Website answer 404 module_disabled
+        assert.equal((await setModules(owner, { publicSite: false })).status, 200);
+        assertModuleDisabled(await call('GET', `/api/public/site?site=${slug}`), 'publicSite', 'site');
+        assertModuleDisabled(await call('GET', `/api/public/listings/index?site=${slug}`), 'publicSite', 'index');
+        assertModuleDisabled(await call('GET', `/api/public/listings/${casa.body.id}?site=${slug}`), 'publicSite', 'listing');
+        assertModuleDisabled(await inq(casa.body.id, { name: 'X', phone: '098 000 001', consent: true }), 'publicSite', 'inquiry');
+        assertModuleDisabled(await ev({ type: 'whatsapp_click' }), 'publicSite', 'events');
+        assertModuleDisabled(await call('GET', '/api/site-settings', owner), 'publicSite', 'site settings');
+        assert.equal((await call('GET', `/api/public/site?site=${otherSlug}`)).status, 200, 'other brokerages keep their site');
+        assert.equal((await setModules(owner, { publicSite: null })).status, 200);
     });
 
     await step('module system: list, permissions, per-brokerage override, dependencies, isolation, audit', async () => {

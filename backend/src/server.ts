@@ -55,6 +55,7 @@ import { authenticateToken, AuthRequest } from './middleware/authMiddleware';
 import { requireModule, moduleForcedOff, sendModuleDisabled } from './lib/modules';
 import modulesRoutes from './routes/modules';
 import publicRoutes from './routes/public';
+import siteSettingsRoutes from './routes/siteSettings';
 import { startReminderLoop } from './lib/reminders';
 import { runRelease } from './release';
 import { captureBackendException } from './lib/sentry';
@@ -92,11 +93,12 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/oauth', oauthRoutes); // googleOAuth is checked inside (no user yet)
 app.use('/api/modules', modulesRoutes);
-app.use('/api/public', publicRoutes); // domain-check for Caddy on-demand TLS (spec 3.2)
+app.use('/api/public', publicRoutes); // Caddy domain-check and the brokerage sites (spec 3.2 / 8); publicSite is checked per brokerage inside
 
 // Protected Routes
 // Each optional module's router is gated with requireModule (404 module_disabled when off).
 app.use('/api/clients', authenticateToken, requireModule('crmLeads'), clientRoutes);
+app.use('/api/site-settings', authenticateToken, requireModule('publicSite'), siteSettingsRoutes);
 app.use('/api/properties', propertyRoutes); // Public /public route + self-managed auth via router.use(authenticateToken)
 app.use('/api/transactions', authenticateToken, requireModule('deals'), transactionRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
