@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Noto_Serif_SC } from "next/font/google";
-import "./globals.css";
+import "../globals.css";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import { Providers } from "@/components/Providers";

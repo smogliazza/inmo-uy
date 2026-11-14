@@ -24,6 +24,21 @@
 > Desde el fork para Uruguay (`smogliazza/inmo-uy`) las entradas nuevas se escriben en español.
 
 #### Agregado (fork Uruguay)
+- **Sitio web de cada inmobiliaria en su dominio** (`{slug}.PLATFORM_DOMAIN` o el dominio propio; sin
+  `PLATFORM_DOMAIN`, en `/sites/{slug}`): portada con buscador y destacadas, `/propiedades` con filtros
+  instantáneos (operación, tipo, zona, precio en la moneda elegida, dormitorios, baños, superficie, comodidades y
+  texto sin importar tildes) con contadores en vivo y el estado en la dirección para compartir, `/venta` y
+  `/alquiler`, ficha con galería, mapa exacto o aproximado, botón de WhatsApp con el mensaje armado y formulario
+  de consulta, favoritos guardados en el navegador, páginas de contenido y política de privacidad.
+- **Mapa** con agrupamiento de pins, siempre con los mismos resultados que la lista, y «Buscar en esta zona».
+  Se carga recién cuando se abre (se puede apagar con el módulo «Mapa en sitio público»).
+- **Consultas del sitio con consentimiento** (Ley 18.331): la casilla es obligatoria y queda registrada en el
+  interesado; cada clic en WhatsApp, teléfono o email queda registrado.
+- **Ajustes > Sitio web**: portada (3 diseños), tipografía, títulos, avisos, páginas, redes, email, horario,
+  WhatsApp de la inmobiliaria y política de privacidad (con plantilla para revisar con un profesional).
+- **Título público** en las propiedades («Hermosa casa céntrica»): se usa en el sitio y en el mensaje de WhatsApp.
+- SEO por dominio: títulos del tipo «Casa en venta en Centro, Salto — 4 dorm. — US$ 290.000», datos
+  estructurados, dirección canónica, `sitemap.xml` y `robots.txt` propios; los sitios de demostración no se indexan.
 - **Dominio propio por inmobiliaria** en Ajustes > Datos de la inmobiliaria. Cuando el DNS apunta al servidor,
   el certificado HTTPS se emite solo en la primera visita; los dominios que no están cargados no reciben
   certificado.
@@ -71,10 +86,14 @@
   sitio web. Las contraseñas se toman de `.env` (copiar de `.env.example`); no hay valores fijos.
 
 #### Corregido (fork Uruguay)
+- El mapa para ubicar una propiedad en el panel no cargaba en producción (no encontraba su proceso de fondo).
+- Guardar datos sueltos de la inmobiliaria o del perfil ya no borra el teléfono si no se envió.
 - Las páginas públicas (portada, registro, propiedades públicas) mandaban al ingreso a quien no tenía sesión
   iniciada (error introducido con el sistema de módulos).
 
 #### Cambiado (fork Uruguay)
+- La página pública heredada `/public-listings?b=…` (y cada ficha `/public-listings/…`) redirige con 301 al
+  sitio nuevo de la inmobiliaria.
 - Las propiedades existentes conservan su precio: al actualizar, cada una pasa a tener un precio de venta en US$
   con el mismo monto (proceso automático e idempotente; también `npm run backfill:prices`).
 - Las consultas del sitio entran con origen «Sitio web» y «Puertas abiertas» (antes «Website» y «Open House»);
@@ -475,6 +494,7 @@
 | Servidor (`.env`) | `ACME_EMAIL` / `GHCR_OWNER` / `TAG` | Fork Uruguay: email para Let's Encrypt, dueño de las imágenes en GHCR y versión a correr (la pone `deploy.sh`) |
 | Backup | `BACKUP_R2_BUCKET` / `BACKUP_ENCRYPTION_KEY` / `BACKUP_TIME` / `KEEP_DAILY` / `KEEP_WEEKLY` / `BACKUP_HEALTHCHECK_URL` | Fork Uruguay: destino, clave de cifrado (guardar una copia fuera del servidor), horario, retención y aviso de backup (`deploy/backup.env.example`) |
 | Backend | `NOMINATIM_URL` / `GEOCODER_USER_AGENT` | Fork Uruguay: búsqueda de direcciones para ubicar el pin (Nominatim, 1 consulta por segundo; el User-Agent debe identificar a la plataforma con un contacto) |
+| Frontend (servidor) | `PLATFORM_DOMAIN` / `API_INTERNAL_URL` | Fork Uruguay: con `PLATFORM_DOMAIN` el servidor web muestra el sitio de cada inmobiliaria según el dominio (sin él, en `/sites/{slug}`); `API_INTERNAL_URL` es la API para las consultas del servidor web (en Docker, `http://api:4000`; por defecto `NEXT_PUBLIC_API_URL`) |
 | Frontend | `NEXT_PUBLIC_MAP_STYLE_URL` | Fork Uruguay: estilo del mapa (por defecto OpenFreeMap «liberty», sin clave) |
 | Backend | `PLATFORM_NAME` | Fork Uruguay: nombre de la plataforma en los emails (por defecto «Plataforma inmobiliaria») |
 | Frontend | `NEXT_PUBLIC_SUPPORTED_LOCALES` / `NEXT_PUBLIC_DEFAULT_LOCALE` | Fork Uruguay: idiomas que ofrece el selector (por defecto `es,en`) e idioma inicial (`es`). Equivalen a `SUPPORTED_LOCALES` / `DEFAULT_LOCALE` de la especificación; Next.js exige el prefijo `NEXT_PUBLIC_` |

@@ -127,7 +127,7 @@ const optNum = (v: unknown, opts: { int?: boolean; min?: number; max?: number } 
  */
 export function parseUyFields(body: Record<string, unknown>, catalog: { amenities: string[] }): { ok: true; data: Record<string, unknown> } | { ok: false; error: string } {
     const data: Record<string, unknown> = {};
-    for (const [k, max] of [['code', 40], ['locality', 120], ['padron', 40], ['externalUrl', 500]] as const) {
+    for (const [k, max] of [['title', 120], ['code', 40], ['locality', 120], ['padron', 40], ['externalUrl', 500]] as const) {
         const v = optText(body[k], max);
         if (v !== undefined) data[k] = v;
     }
