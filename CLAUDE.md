@@ -96,6 +96,14 @@ el alcance de cada fase. Si algo de este archivo la contradice, avisá en el PR.
   Los `NEXT_PUBLIC_*` se fijan al construir la imagen web (workflow `release.yml`). Caddy solo emite HTTPS para
   hosts que aprueba `GET /api/public/domain-check` (`backend/src/routes/public.ts`); desde los dominios de las
   inmobiliarias solo llega la API pública. Guías: `guides/droplet-setup.md`, `guides/restore.md`.
+- **Sitio público** (fase F5): `frontend/src/proxy.ts` lee el Host y reescribe a `app/%5Fsite/[orgSlug]/[lang]/…`
+  (ruta interna `/_site`, con layout raíz propio y `site.css`; el panel vive en el grupo `app/(panel)`). Sin
+  `PLATFORM_DOMAIN` los sitios se ven en `/sites/{slug}`. Datos: `GET /api/public/site|listings/index|listings/:ref`
+  (siempre `?site=` o `?host=`; `backend/src/routes/public.ts`). Los textos del sitio están en `extra.ts`
+  (`site.*`) pero se leen en el servidor con `extraDict(lang)` y los componentes cliente reciben solo `S`: no
+  importar `useI18n`/`useExtra` en `components/site/` (el diccionario del panel no entra en el JS del sitio). El
+  filtrado vive en `lib/site/filter.ts` (servidor y navegador). Config. de página (`revalidate`) siempre con
+  literales. Mapas: `loadMaplibre()` de `lib/maplibre.ts` (el worker se copia a `public/maplibre/` al compilar).
 - Priorizar lo que resuelve problemas concretos de inmobiliarias y agentes, sin agregar peso innecesario.
 - El repo es **público** y su historial no se puede borrar de verdad: nunca commitear secretos, cadenas de
   conexión ni contraseñas, ni documentos (Word u otros binarios) que los contengan. Los pendientes que

@@ -1405,7 +1405,10 @@ async function main() {
         const slug = (await call('GET', '/api/settings/organization', owner)).body.slug;
         const otherSlug = (await call('GET', '/api/settings/organization', other)).body.slug;
         const domain = `site-${run}.example.uy`;
-        await call('PATCH', '/api/settings/organization', owner, { customDomain: domain, whatsapp: '099 991 525', brandColor: '#1F6F5C' });
+        await call('PATCH', '/api/settings/organization', owner, { phone: '473 22 123' });
+        const partial = await call('PATCH', '/api/settings/organization', owner, { customDomain: domain, whatsapp: '099 991 525', brandColor: '#1F6F5C' });
+        assert.equal(partial.body.whatsapp, '+59899991525');
+        assert.equal(partial.body.phone, '+59847322123', 'a field that is not sent keeps its value');
 
         // Site settings: validation, permissions, safe links only
         assert.equal((await call('PUT', '/api/site-settings', agent, { config: { layout: 'hero' } })).status, 403, 'agents cannot edit the site');

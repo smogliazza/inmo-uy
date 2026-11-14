@@ -75,7 +75,7 @@ router.patch('/profile', async (req: AuthRequest, res) => {
             data: {
                 ...(name !== undefined ? { name: String(name).trim().slice(0, 120) } : {}),
                 title:         clean(title, 120),
-                phone:         normalizePhoneUY(clean(phone, 40)),
+                ...(phone !== undefined ? { phone: normalizePhoneUY(clean(phone, 40)) } : {}), // absent = unchanged
                 licenseNumber: clean(licenseNumber, 60),
                 linkedIn:      clean(linkedIn, 300),
                 bio:           clean(bio, 2000),
@@ -213,7 +213,7 @@ router.patch('/organization', authorizeRole(ADMIN_ROLES), async (req: AuthReques
                 ...(name !== undefined ? { name: String(name).trim().slice(0, 200) } : {}),
                 website:       clean(website, 300),
                 address:       clean(address, 300),
-                phone:         normalizePhoneUY(clean(phone, 40)),
+                ...(phone !== undefined ? { phone: normalizePhoneUY(clean(phone, 40)) } : {}), // absent = unchanged
                 licenseNumber: clean(licenseNumber, 60),
                 logoUrl:       clean(logoUrl, 500),
                 ...(req.body.whatsapp !== undefined ? { whatsapp: normalizePhoneUY(clean(req.body.whatsapp, 40)) } : {}),

@@ -1,15 +1,26 @@
-import Link from 'next/link';
+// 404 for addresses that match no page (the panel and the brokerage sites have separate root layouts, so this
+// one renders on its own). Unknown brokerage hosts land here too, with noindex.
+import "./globals.css";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { extraDict } from "@/lib/i18n/extra";
+import { DEFAULT_LANGUAGE, HTML_LANG } from "@/lib/i18n/languages";
 
-export default function NotFound() {
+const T = extraDict(DEFAULT_LANGUAGE).site.notFound;
+
+export const metadata: Metadata = { title: T.title, robots: { index: false, follow: false } };
+
+export default function GlobalNotFound() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-center p-8">
-      <div className="w-12 h-12 bg-surface border border-border flex items-center justify-center font-serif text-2xl text-primary mb-8">C</div>
-      <div className="font-serif text-8xl font-bold text-foreground/10 mb-4 select-none">404</div>
-      <h1 className="text-2xl font-bold text-foreground mb-3">Page not found</h1>
-      <p className="text-foreground/50 text-sm mb-8 max-w-sm">The page you&apos;re looking for doesn&apos;t exist or has been moved.</p>
-      <Link href="/dashboard" className="px-6 py-3 bg-primary text-background text-sm uppercase tracking-widest font-semibold rounded-lg hover:opacity-90 transition">
-        Back to Dashboard →
-      </Link>
-    </div>
+    <html lang={HTML_LANG[DEFAULT_LANGUAGE]}>
+      <body>
+        <main className="min-h-screen flex flex-col items-center justify-center text-center p-8">
+          <div className="text-8xl font-bold opacity-10 mb-4 select-none">404</div>
+          <h1 className="text-2xl font-bold mb-3">{T.title}</h1>
+          <p className="opacity-60 text-sm mb-8 max-w-sm">{T.text}</p>
+          <Link href="/" className="px-6 py-3 bg-primary text-background text-sm font-semibold rounded-lg hover:opacity-90">{T.home}</Link>
+        </main>
+      </body>
+    </html>
   );
 }

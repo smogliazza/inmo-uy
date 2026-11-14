@@ -132,4 +132,22 @@ happen; note anything that doesn't.
 - [ ] Un release nuevo (tag) aparece en `https://app.PLATFORM_DOMAIN/api/health` con su versión.
 - [ ] Prueba mensual de restauración según `guides/restore.md`, anotada en su tabla.
 
+## 14. Sitio web de la inmobiliaria (fork Uruguay)
+
+- [ ] Abrir el sitio (`https://{slug}.PLATFORM_DOMAIN`, el dominio propio o, sin dominio, `/sites/{slug}`):
+  portada con buscador, destacadas y datos de contacto al pie.
+- [ ] `/propiedades`: cada filtro cambia la lista al instante y los números entre paréntesis se actualizan; la
+  dirección cambia (copiarla en otra pestaña abre los mismos resultados) y el botón Atrás deshace el filtro.
+- [ ] Buscar «dayman» encuentra «Termas del Daymán». El precio se filtra en la moneda elegida (US$ o $).
+- [ ] «Lista y mapa»: los pins coinciden con la lista; acercar el mapa y tocar «Buscar en esta zona».
+- [ ] Ficha: galería (flechas, pantalla completa), datos, mapa (círculo si la ubicación es aproximada; sin mapa
+  si está oculta), WhatsApp con «Hola, me interesa la propiedad COD. …» y llamada.
+- [ ] Formulario de consulta: sin marcar la casilla de privacidad no se envía; enviado, aparece el interesado con
+  origen «Sitio web», tarea y aviso al agente.
+- [ ] Favoritos: el corazón guarda la propiedad y aparece en `/favoritos` (en el mismo navegador).
+- [ ] Ajustes > Sitio web: cambiar diseño de portada, tipografía, páginas y política de privacidad; se ve en el
+  sitio en menos de un minuto.
+- [ ] `/public-listings?b={slug}` lleva al sitio nuevo. Con el módulo «Sitio público» apagado, el sitio no abre.
+- [ ] Un dominio de demostración no se indexa (`/robots.txt` con `Disallow: /`).
+
 Report problems with: the page, what you clicked, what you expected, what happened, and a screenshot.

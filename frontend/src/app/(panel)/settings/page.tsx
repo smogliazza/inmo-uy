@@ -17,6 +17,7 @@ const ROLE_WEIGHT: Record<string, number> = {
 import { INPUT_CLS, SELECT_CLS, TEXTAREA_CLS, LOCKED_BADGE, Toggle, SectionHeader, SettingRow, LockedRow, SubTabs } from "./ui";
 import { CrmSettings, PropertiesSettings, FinanceSettings, AppointmentsSettings, DocumentsSettings } from "./PolicySections";
 import ModulesSettings from "./ModulesSettings";
+import WebsiteSettings from "./WebsiteSettings";
 import { useSettings } from "@/lib/settings/useSettings";
 import { useModules, ModuleKey } from "@/lib/modules";
 import { fmtLocale } from "@/lib/format";
@@ -121,6 +122,7 @@ export default function SettingsPage() {
         { key: "users",          label: S.nav?.users         ?? "Team & Roles",   icon: "👥", adminOnly: true },
         { key: "modules",        label: useExtra().modules.navLabel,              icon: "🧩", adminOnly: true },
         { key: "lead-routing",   label: useExtra().leadRouting.navLabel,          icon: "🎯", adminOnly: true, module: "leadRouting" },
+        { key: "website",        label: useExtra().siteSettings.title,            icon: "🌐", module: "publicSite" },
         { key: "security",       label: S.nav?.security      ?? "Security",       icon: "🔐" },
         { key: "appearance",     label: S.nav?.appearance    ?? "Appearance",     icon: "🎨" },
         { key: "integrations",   label: S.nav?.integrations  ?? "Integrations",  icon: "🔗" },
@@ -1257,6 +1259,7 @@ export default function SettingsPage() {
       case "users":          return renderUsers();
       case "modules":        return <ModulesSettings />;
       case "lead-routing":   return renderLeadRouting();
+      case "website":        return <WebsiteSettings />;
       case "security":       return renderSecurity();
       case "appearance":     return renderAppearance();
       case "integrations":   return renderIntegrations();

@@ -4,7 +4,9 @@
   "appVersion": "1.1.0.3",
   "private": true,
   "scripts": {
+    "predev": "node scripts/copy-maplibre-worker.js",
     "dev": "next dev",
+    "prebuild": "node scripts/copy-maplibre-worker.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

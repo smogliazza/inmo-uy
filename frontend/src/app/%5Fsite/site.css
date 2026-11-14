@@ -1,0 +1,16 @@
+/* Brokerage sites: their own small stylesheet (the panel's themes and global rules do not apply here) */
+@import "tailwindcss" source(none);
+@source "../../components/site";
+@source "./";
+
+@theme inline {
+  --font-sans: var(--font-site), ui-sans-serif, system-ui, sans-serif;
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+}
+
+:root { --brand: #0f766e; --brand-fg: #ffffff; }
+html { scroll-behavior: smooth; }
+body { background: #ffffff; color: #0f172a; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.maplibregl-popup-content { border-radius: 0.75rem; padding: 0; overflow: hidden; }
