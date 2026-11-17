@@ -3,6 +3,7 @@
 import React from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Map as MlMap, Marker as MlMarker } from "maplibre-gl";
+import { loadMaplibre } from "@/lib/maplibre";
 
 /**
  * Map to place a listing's pin (MapLibre GL + OpenFreeMap by default, no API key).
@@ -28,7 +29,7 @@ export default function LocationPicker({ lat, lng, onChange, onError }: {
     let cancelled = false;
     (async () => {
       try {
-        const maplibre = await import("maplibre-gl");
+        const maplibre = await loadMaplibre();
         if (cancelled || !box.current) return;
         const m = new maplibre.Map({
           container: box.current,

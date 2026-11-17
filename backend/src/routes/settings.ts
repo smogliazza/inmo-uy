@@ -75,7 +75,7 @@ router.patch('/profile', async (req: AuthRequest, res) => {
             data: {
                 ...(name !== undefined ? { name: String(name).trim().slice(0, 120) } : {}),
                 title:         clean(title, 120),
-                phone:         normalizePhoneUY(clean(phone, 40)),
+                ...(phone !== undefined ? { phone: normalizePhoneUY(clean(phone, 40)) } : {}), // absent = unchanged
                 licenseNumber: clean(licenseNumber, 60),
                 linkedIn:      clean(linkedIn, 300),
                 bio:           clean(bio, 2000),
@@ -100,7 +100,7 @@ router.get('/organization', async (req: AuthRequest, res) => {
         if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
         const org = await prisma.organization.findUnique({
             where:  { id: req.user.orgId },
-            select: { id: true, name: true, website: true, address: true, phone: true, licenseNumber: true, logoUrl: true, brandColor: true, subscription: true, defaultCommissionRate: true, defaultFirmSplit: true, slug: true, country: true, timezone: true, defaultCurrency: true, preferredLanguage: true, customDomain: true },
+            select: { id: true, name: true, website: true, address: true, phone: true, licenseNumber: true, logoUrl: true, brandColor: true, subscription: true, defaultCommissionRate: true, defaultFirmSplit: true, slug: true, country: true, timezone: true, defaultCurrency: true, preferredLanguage: true, customDomain: true, whatsapp: true },
         });
         if (!org) return res.status(404).json({ error: 'Organization not found' });
         const seats = await getSeatUsage(req.user.orgId);
@@ -213,9 +213,10 @@ router.patch('/organization', authorizeRole(ADMIN_ROLES), async (req: AuthReques
                 ...(name !== undefined ? { name: String(name).trim().slice(0, 200) } : {}),
                 website:       clean(website, 300),
                 address:       clean(address, 300),
-                phone:         normalizePhoneUY(clean(phone, 40)),
+                ...(phone !== undefined ? { phone: normalizePhoneUY(clean(phone, 40)) } : {}), // absent = unchanged
                 licenseNumber: clean(licenseNumber, 60),
                 logoUrl:       clean(logoUrl, 500),
+                ...(req.body.whatsapp !== undefined ? { whatsapp: normalizePhoneUY(clean(req.body.whatsapp, 40)) } : {}),
                 ...(brandColor !== undefined ? { brandColor: clean(brandColor, 20) } : {}),
                 ...(nextSlug !== undefined ? { slug: nextSlug } : {}),
                 ...pct,
@@ -224,7 +225,7 @@ router.patch('/organization', authorizeRole(ADMIN_ROLES), async (req: AuthReques
             select: {
                 id: true, name: true, website: true, address: true, phone: true, licenseNumber: true, logoUrl: true,
                 slug: true, brandColor: true, subscription: true, defaultCommissionRate: true, defaultFirmSplit: true,
-                country: true, timezone: true, defaultCurrency: true, preferredLanguage: true, customDomain: true,
+                country: true, timezone: true, defaultCurrency: true, preferredLanguage: true, customDomain: true, whatsapp: true,
             },
         });
         if (Object.keys(loc).length) clearOrgLocaleCache(req.user.orgId);

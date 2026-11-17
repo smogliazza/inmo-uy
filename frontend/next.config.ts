@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "fs";
+
+const maplibreVersion: string = JSON.parse(readFileSync(require.resolve("maplibre-gl/package.json"), "utf8")).version;
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 let apiOrigin = "";
@@ -53,6 +56,8 @@ const cspHeaderKey =
     : "Content-Security-Policy-Report-Only";
 
 const nextConfig: NextConfig = {
+  // Versioned file name of the MapLibre worker copied to public/maplibre/ (scripts/copy-maplibre-worker.js)
+  env: { NEXT_PUBLIC_MAPLIBRE_VERSION: maplibreVersion },
   // Docker image (frontend/Dockerfile) builds a self-contained server; Vercel ignores this when unset
   ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
   // Allow images from common real estate image sources
@@ -94,6 +99,9 @@ const nextConfig: NextConfig = {
 
   // Enable React strict mode for better dev warnings
   reactStrictMode: true,
+
+  // The panel and the brokerage sites have separate root layouts, so unmatched URLs need a global 404
+  experimental: { globalNotFound: true },
 };
 
 export default nextConfig;

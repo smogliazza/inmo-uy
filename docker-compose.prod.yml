@@ -30,6 +30,9 @@ services:
   web:
     image: ghcr.io/${GHCR_OWNER:?Set GHCR_OWNER in .env}/inmo-uy-web:${TAG:?Set TAG}
     env_file: .env.web
+    environment:
+      PLATFORM_DOMAIN: ${PLATFORM_DOMAIN}   # brokerage hosts → their sites (src/proxy.ts)
+      API_INTERNAL_URL: http://api:4000      # server-side fetches of the sites, without leaving the server
     deploy: { resources: { limits: { memory: 384M } } }
     logging: *logging
     restart: unless-stopped

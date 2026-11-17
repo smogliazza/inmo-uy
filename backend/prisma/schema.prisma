@@ -283,6 +283,7 @@ model Property {
   propertyNotes Note[]
 
   // ── Uruguay (spec 6.2): every column optional ──
+  title          String?        // public headline ("Hermosa casa céntrica"); the site builds one when empty
   code           String?        // the brokerage's own code ("COD.")
   slug           String?        // friendly URL part
   isPublic       Boolean        @default(true)
@@ -308,6 +309,18 @@ model Property {
   @@unique([orgId, externalSource, externalId])
   @@index([orgId, isPublic, status])
   @@index([orgId, lat, lng])
+}
+
+// Public site interactions (spec 8.4): WhatsApp / phone clicks, so the brokerage sees which listings get contacts
+model SiteEvent {
+  id         String   @id @default(uuid())
+  orgId      String
+  propertyId String?
+  type       String   // whatsapp_click | phone_click | email_click | share
+  createdAt  DateTime @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([propertyId])
 }
 
 enum GeoPrecision {

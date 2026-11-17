@@ -4,11 +4,8 @@ import rateLimit from 'express-rate-limit';
 import { authenticateToken, AuthRequest } from '../middleware/authMiddleware';
 import { optDate, optNumber, isManager } from '../lib/access';
 import { OrgPolicies, missingListingField, descriptionTooLong } from '../lib/policies';
-import { createNotification } from './notifications';
-import { resolveLeadAssignee } from '../lib/routing';
 import { getOrgModules, sendModuleDisabled } from '../lib/modules';
-import { normalizePhoneUY, matchPlaceName } from '../lib/uy';
-import { orgLocale } from '../lib/messages';
+import { matchPlaceName } from '../lib/uy';
 import { parsePrices, parseAmount, parseUyFields, savePrices, validPropertyType, publicCoords, PriceInput } from '../lib/listing';
 import { Prisma } from '@prisma/client';
 import { geocode } from '../lib/geocode';
@@ -19,6 +16,7 @@ async function orgCityNames(orgId: string): Promise<string[]> {
     return rows.map(r => r.city).filter((c): c is string => Boolean(c));
 }
 import { audit, diffFields } from '../lib/audit';
+import { handleInquiry, PUBLIC_STATUSES } from '../lib/inquiry';
 
 const router = Router();
 
@@ -115,82 +113,13 @@ router.get('/public/:id', async (req, res) => {
 // Creates (or updates) a HOT lead for the listing agent, logs the message,
 // and drops a "call back now" task — speed-to-lead matters most.
 router.post('/public/:id/inquiry', inquiryLimiter, async (req, res) => {
-    const clean = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
-    const name = clean(req.body.name, 120);
-    const email = clean(req.body.email, 200).toLowerCase();
-    const phone = normalizePhoneUY(clean(req.body.phone, 40)) || '';
-    const message = clean(req.body.message, 2000);
-    const source = req.body.source === 'OPEN_HOUSE' ? 'Puertas abiertas' : 'Sitio web';
-    // Honeypot field: real users never fill it in
-    if (clean(req.body.website)) return res.status(201).json({ ok: true });
-
-    if (!name) return res.status(400).json({ error: 'Please enter your name' });
-    if (!email && !phone) return res.status(400).json({ error: 'Please enter an email or phone number' });
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email address' });
-
     const property = await prisma.property.findFirst({
-        where: { id: String(req.params.id), isPublic: true, status: { in: ['ACTIVE', 'COMING_SOON', 'IN_CONTRACT', 'RESERVED'] } },
+        where: { id: String(req.params.id), isPublic: true, status: { in: [...PUBLIC_STATUSES] } },
     });
     if (!property) return res.status(404).json({ error: 'Listing not found' });
-    const modules = await getOrgModules(property.orgId);
-    if (!modules.publicSite.enabled) return sendModuleDisabled(res, 'publicSite');
-
-    // With lead routing off, the inquiry goes straight to the listing agent.
-    const assignedAgentId = modules.leadRouting.enabled
-        ? (await resolveLeadAssignee({
-            orgId: property.orgId,
-            source,
-            city: property.city,
-            propertyType: property.propertyType,
-            price: property.price,
-            listingAgentId: property.agentId,
-        })).agentId
-        : property.agentId;
-
-    const [firstName, ...rest] = name.split(/\s+/);
-    const or: any[] = [];
-    if (email) or.push({ email: { equals: email, mode: 'insensitive' } });
-    if (phone) or.push({ phone });
-    let client = await prisma.client.findFirst({ where: { orgId: property.orgId, OR: or } });
-    const isNew = !client;
-    if (!client) {
-        client = await prisma.client.create({
-            data: {
-                firstName, lastName: rest.join(' '),
-                email: email || null, phone: phone || null,
-                type: 'BUYER', status: 'LEAD', funnelStage: 'LEAD', temperature: 'HOT',
-                source, agentId: assignedAgentId, orgId: property.orgId,
-            },
-        });
-    } else {
-        await prisma.client.update({ where: { id: client.id }, data: { temperature: 'HOT' } });
-    }
-
-    const targetAgentId = isNew ? assignedAgentId : client.agentId;
-    const { m } = await orgLocale(property.orgId);
-
-    await prisma.note.create({
-        data: {
-            type: 'NOTE',
-            content: m.inquiryNote(source, property.address, message),
-            clientId: client.id, propertyId: property.id,
-            authorId: targetAgentId, orgId: property.orgId,
-        },
-    });
-    if (modules.tasks.enabled) await prisma.task.create({
-        data: {
-            title: m.callBackTask(name, property.address),
-            priority: 'URGENT', dueDate: new Date(Date.now() + 15 * 60 * 1000),
-            linkedClientId: client.id, linkedPropertyId: property.id,
-            agentId: targetAgentId, orgId: property.orgId,
-        },
-    });
-    await createNotification(
-        targetAgentId, property.orgId, 'NEW_CLIENT',
-        isNew ? m.newLead(source) : m.returningLead(name),
-        m.leadDetail(name, property.address),
-        `/crm/${client.id}`,
-    );
+    if (!(await getOrgModules(property.orgId)).publicSite.enabled) return sendModuleDisabled(res, 'publicSite');
+    const r = await handleInquiry(property, req.body || {}, false);
+    if (!r.ok) return res.status(r.status).json({ error: r.error, code: r.code });
     res.status(201).json({ ok: true });
 });
 

@@ -50,7 +50,7 @@ export default function PropertyForm({ propertyId, onClose, onSaved }: {
   const [form, setForm] = React.useState(() => ({
     propertyType: "", address: "", locality: "", city: "", state: "", zip: "", neighborhood: "",
     beds: "", baths: "", builtAreaM2: "", landArea: "", landAreaUnit: "M2" as "M2" | "HA", garageSpaces: "",
-    furnished: false, amenities: [] as string[], code: "", padron: "", yearBuilt: "", description: "",
+    furnished: false, amenities: [] as string[], title: "", code: "", padron: "", yearBuilt: "", description: "",
     status: pp.photosRequiredToActivate > 0 ? "COMING_SOON" : preferences.properties.defaultStatus,
     isPublic: true, hoaFee: "", hoaFeeCurrency: "UYU" as Currency, sqft: "", mlsNumber: "",
     lat: null as number | null, lng: null as number | null, geoPrecision: "EXACT" as GeoPrecision,
@@ -67,7 +67,7 @@ export default function PropertyForm({ propertyId, onClose, onSaved }: {
         propertyType: str(p.propertyType), address: str(p.address), locality: str(p.locality), city: str(p.city), state: str(p.state),
         zip: str(p.zip), neighborhood: str(p.neighborhood), beds: str(p.beds), baths: str(p.baths), builtAreaM2: str(p.builtAreaM2),
         landArea: str(p.landArea), landAreaUnit: p.landAreaUnit === "HA" ? "HA" : "M2", garageSpaces: str(p.garageSpaces ?? p.parkingSpaces),
-        furnished: !!p.furnished, amenities: Array.isArray(p.amenities) ? p.amenities : [], code: str(p.code), padron: str(p.padron),
+        furnished: !!p.furnished, amenities: Array.isArray(p.amenities) ? p.amenities : [], title: str(p.title), code: str(p.code), padron: str(p.padron),
         yearBuilt: str(p.yearBuilt), description: str(p.description), status: p.status, isPublic: p.isPublic !== false,
         hoaFee: str(p.hoaFee), hoaFeeCurrency: p.hoaFeeCurrency || "UYU", sqft: str(p.sqft), mlsNumber: str(p.mlsNumber),
         lat: p.lat ?? null, lng: p.lng ?? null, geoPrecision: p.geoPrecision || "EXACT",
@@ -203,6 +203,11 @@ export default function PropertyForm({ propertyId, onClose, onSaved }: {
                 <label className={LABEL}>{F.code}{star("code")}</label>
                 <input className={INPUT} value={form.code} onChange={e => set({ code: e.target.value })} title={F.codeHint} />
               </div>
+            </div>
+            <div>
+              <label className={LABEL}>{F.publicTitle}</label>
+              <input className={INPUT} value={form.title} maxLength={120} onChange={e => set({ title: e.target.value })} />
+              <p className="text-xs text-foreground/40 mt-1">{F.publicTitleHint}</p>
             </div>
             <div>
               <label className={LABEL}>{F.address}</label>

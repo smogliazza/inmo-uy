@@ -65,6 +65,21 @@ This file lists what to do after the trial launch, in priority order by stage. E
 | 1.5.0.0 | 4 AI 助手正式上线<br>*AI assistant goes live* | ⏸ | 代码已有，开关关闭（“正在开发”）<br>*Code exists, switch is off (“in development”)* |
 | 2.x.0.0 | 5.x 团队管理与移动端<br>*Team management and mobile* | ⬜ | 按客户反馈排序<br>*Ordered by customer feedback* |
 
+### Fases de la especificación Uruguay (fork)
+
+| Fase | Contenido | Estado | Notas |
+|---|---|---|---|
+| F0 | Prisma 4 → 7 | ✅ | PR #1 |
+| F1 | Sistema de módulos | ✅ | PR #2 |
+| F2 | Localización Uruguay | ✅ | PR #3–#4 |
+| F3 | Propiedades Uruguay (precios por operación, campos nuevos) | ✅ | PR #5 |
+| F4 | Infraestructura (Droplet, Caddy, release, backups) | ✅ | PR #6 |
+| F5 | Sitio público por dominio: índice, filtros, mapa, ficha, SEO | 🟡 | En revisión; Lighthouse en `guides/lighthouse/f5/` |
+| F6 | Migrador desde inmobiliariaya | ⬜ | |
+| F7 | Gestión de alquileres | ⬜ | Necesita las reglas de negocio del dueño |
+| F8 | CRM: bandeja de consultas, matching, `/busco`, `/publicar`, exportación | ⬜ | |
+| F9 | QA de punta a punta | ⬜ | |
+
 ---
 
 ## 阶段 0：试用期间（上线后 1–2 周） / Stage 0: during the trial (1–2 weeks after launch)
