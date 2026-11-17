@@ -4,6 +4,10 @@ Plataforma inmobiliaria multi-inmobiliaria para Uruguay, forkeada de
 `David-rider/Real-estate-Agency-CRM` (commit `d2f0f9e`, licencia MIT). El remoto
 `upstream` apunta al repo original y se usa solo para cherry-picks puntuales.
 
+**PRs solo al fork.** Todo PR, issue o push va a `smogliazza/inmo-uy` (remoto `origin`). Nunca se abren PRs ni
+issues en el proyecto original (`David-rider/Real-estate-Agency-CRM`) ni se empuja a `upstream`. Con `gh`, pasar
+siempre el repo del fork (`--repo smogliazza/inmo-uy` o `gh api repos/smogliazza/inmo-uy/...`) y base `main` del fork.
+
 `backend/` = Express 5 + Prisma + PostgreSQL. `frontend/` = Next.js 16 + React 19 + Tailwind 4.
 Hoy se puede desplegar en Render (`render.yaml`, se conserva) + Vercel; el destino es un Droplet de
 DigitalOcean con Docker Compose + Caddy (fase F4 de la especificación).
