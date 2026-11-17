@@ -1,4 +1,4 @@
-import { prisma } from '../server';
+import { prisma } from './db';
 import { placeKey } from './uy';
 
 // Sources written before the Uruguay localization match their Spanish names (and vice versa),

@@ -538,7 +538,7 @@ const en = {
       dorm: "{n} bd",
       inPlace: "in {place}",
     },
-    demo: "Demo site",
+    demo: "Demo with public data from {org}",
     privacy: {
       title: "Privacy policy",
       body: "{org} is responsible for the database that holds the personal data entered on this site (name, email, phone and the message of each inquiry), under Uruguayan Law No. 18,331 on Personal Data Protection and its regulations.\n\nPurpose. The data is used only to answer inquiries, arrange viewings and send information about properties that may interest you. It is never sold or passed on to third parties.\n\nData processor. The site runs on a technology platform that stores the data on behalf of {org}, with the security measures the law requires, and does not use it for its own purposes.\n\nRetention. The data is kept while the business relationship lasts or until you ask for it to be deleted.\n\nYour rights. You may ask at any time to access, correct, update or delete your data by writing to {email}{address}. You may also file a complaint with the Personal Data Regulatory and Control Unit (URCDP).\n\nConsent. By sending a form and ticking the corresponding box you agree to the use of your data on these terms.",
@@ -1133,7 +1133,7 @@ const zhCN: Dict = {
       dorm: "{n} 卧",
       inPlace: "位于 {place}",
     },
-    demo: "演示网站",
+    demo: "演示网站：使用 {org} 的公开数据",
     privacy: {
       title: "隐私政策",
       body: "{org} 是本网站所收集个人信息（姓名、邮箱、电话及每次咨询的留言）所在数据库的负责人，依据乌拉圭第 18.331 号《个人数据保护法》及其实施条例。\n\n用途。这些信息仅用于回复咨询、安排看房以及发送您可能感兴趣的房源信息，不会出售或转让给第三方。\n\n数据处理方。本网站运行在一个技术平台上，该平台代表 {org} 存储数据，采取法律要求的安全措施，不会将数据用于自身目的。\n\n保存期限。在业务关系存续期间或直至您要求删除前，数据将被保存。\n\n您的权利。您可以随时写信至 {email}{address}，要求查阅、更正、更新或删除您的数据，也可以向个人数据监管机构（URCDP）投诉。\n\n同意。提交表单并勾选相应选项，即表示您同意按上述条款使用您的数据。",
@@ -1726,7 +1726,7 @@ const zhTW: Dict = {
       dorm: "{n} 房",
       inPlace: "位於 {place}",
     },
-    demo: "示範網站",
+    demo: "示範網站：使用 {org} 的公開資料",
     privacy: {
       title: "隱私權政策",
       body: "{org} 是本網站所蒐集個人資料（姓名、電子郵件、電話及每次詢問的留言）所在資料庫的負責人，依據烏拉圭第 18.331 號《個人資料保護法》及其施行規則。\n\n用途。這些資料僅用於回覆詢問、安排看屋以及寄送您可能有興趣的物件資訊，不會出售或轉讓給第三方。\n\n資料處理者。本網站運作於一個技術平台上，該平台代表 {org} 儲存資料，採取法律要求的安全措施，不會將資料用於自身目的。\n\n保存期限。在業務關係存續期間或直到您要求刪除前，資料將被保存。\n\n您的權利。您可以隨時寫信至 {email}{address}，要求查閱、更正、更新或刪除您的資料，也可以向個人資料監管機構（URCDP）申訴。\n\n同意。送出表單並勾選相應選項，即表示您同意依上述條款使用您的資料。",
@@ -2611,7 +2611,7 @@ const es: Dict = {
       dorm: "{n} dorm.",
       inPlace: "en {place}",
     },
-    demo: "Sitio de demostración",
+    demo: "Demostración con datos públicos de {org}",
     privacy: {
       title: "Política de privacidad",
       body: "{org} es responsable de la base de datos en la que se guardan los datos personales que se ingresan en este sitio (nombre, email, teléfono y el mensaje de cada consulta), de acuerdo con la Ley N.º 18.331 de Protección de Datos Personales y su decreto reglamentario.\n\nFinalidad. Los datos se usan solo para responder las consultas, coordinar visitas y enviar información sobre propiedades que le puedan interesar. No se venden ni se ceden a terceros.\n\nEncargado del tratamiento. El sitio funciona sobre una plataforma tecnológica que guarda los datos por cuenta de {org}, con las medidas de seguridad que exige la ley, y no los usa para fines propios.\n\nConservación. Los datos se guardan mientras exista la relación comercial o hasta que usted pida su eliminación.\n\nSus derechos. Puede pedir en cualquier momento el acceso, la rectificación, la actualización o la supresión de sus datos escribiendo a {email}{address}. También puede presentar una denuncia ante la Unidad Reguladora y de Control de Datos Personales (URCDP).\n\nConsentimiento. Al enviar un formulario y marcar la casilla correspondiente, usted acepta el uso de sus datos en estos términos.",

@@ -221,7 +221,7 @@ export function messages(lang: Lang): Messages {
 // ─── The brokerage's language and time zone (short cache) ─────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const db = () => (require('../server') as typeof import('../server')).prisma;
+const db = () => (require('./db') as typeof import('./db')).prisma;
 const cache = new Map<string, { at: number; lang: Lang; timeZone: string }>();
 
 export async function orgLocale(orgId: string): Promise<{ lang: Lang; timeZone: string; m: Messages }> {

@@ -1,4 +1,4 @@
-import { prisma } from '../server';
+import { prisma } from './db';
 
 export interface PasswordPolicy {
     minLength: number;

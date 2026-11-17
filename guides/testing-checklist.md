@@ -150,4 +150,14 @@ happen; note anything that doesn't.
 - [ ] `/public-listings?b={slug}` lleva al sitio nuevo. Con el módulo «Sitio público» apagado, el sitio no abre.
 - [ ] Un dominio de demostración no se indexa (`/robots.txt` con `Disallow: /`).
 
+## 15. Migrador desde inmobiliariaya (fork Uruguay)
+
+- [ ] `--dry-run` sobre el sitio de origen: el informe da el mismo total que el sitio (278 para
+  `castroymeirelles.com.uy`) y las cantidades por tipo, operación y ciudad coinciden con sus menús.
+- [ ] Abrir `out/{host}-warnings.csv` con Excel: tildes bien y una fila por advertencia.
+- [ ] Modo demostración: aparece el sitio `/sites/demo-…` (o `demo-….PLATFORM_DOMAIN`) con fotos, precios, mapa y
+  el aviso «Demostración con datos públicos de …»; `robots.txt` no deja indexar.
+- [ ] Correrlo de nuevo no duplica propiedades ni fotos.
+- [ ] Modo migración sin `--authorized-by` o con un usuario que no es SUPERADMIN: no hace nada y lo explica.
+
 Report problems with: the page, what you clicked, what you expected, what happened, and a screenshot.

@@ -1,4 +1,4 @@
-import { prisma } from '../server';
+import { prisma } from './db';
 import { createNotification } from '../routes/notifications';
 import { normalizePreferences } from './policies';
 import { orgIdsWithModuleOff } from './modules';

@@ -1,4 +1,4 @@
-import { prisma } from '../server';
+import { prisma } from './db';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 // Records a sensitive action in the org's audit trail.

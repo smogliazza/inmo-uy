@@ -51,7 +51,9 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            tools/migrator/package-lock.json
 
       - name: Install backend dependencies
         working-directory: backend
@@ -64,6 +66,11 @@ jobs:
       - name: Module resolution unit tests
         working-directory: backend
         run: npm run test:unit
+
+      - name: Migrator parsers on fixtures and typecheck (tools/migrator)
+        if: matrix.modules == 'all-on'
+        working-directory: tools/migrator
+        run: npm ci && npm test && npm run typecheck
 
       - name: Compile backend (production build)
         working-directory: backend

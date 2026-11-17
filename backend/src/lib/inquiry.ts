@@ -3,7 +3,7 @@
  * (or updates the existing one), routes it like any other lead, logs the message and asks the agent to call
  * back. Used by the legacy /api/properties/public/:id/inquiry and by the brokerage sites (/api/public/...).
  */
-import { prisma } from '../server';
+import { prisma } from './db';
 import { createNotification } from '../routes/notifications';
 import { resolveLeadAssignee } from './routing';
 import { getOrgModules } from './modules';

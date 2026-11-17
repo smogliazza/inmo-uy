@@ -75,7 +75,7 @@ This file lists what to do after the trial launch, in priority order by stage. E
 | F3 | Propiedades Uruguay (precios por operación, campos nuevos) | ✅ | PR #5 |
 | F4 | Infraestructura (Droplet, Caddy, release, backups) | ✅ | PR #6 |
 | F5 | Sitio público por dominio: índice, filtros, mapa, ficha, SEO | 🟡 | En revisión; Lighthouse en `guides/lighthouse/f5/` |
-| F6 | Migrador desde inmobiliariaya | ⬜ | |
+| F6 | Migrador desde inmobiliariaya | 🟡 | En revisión; `tools/migrator`, guía `guides/migrador.md` |
 | F7 | Gestión de alquileres | ⬜ | Necesita las reglas de negocio del dueño |
 | F8 | CRM: bandeja de consultas, matching, `/busco`, `/publicar`, exportación | ⬜ | |
 | F9 | QA de punta a punta | ⬜ | |

@@ -41,7 +41,7 @@ export default async function SiteLayout({ children, params }: SiteParams & { ch
   return (
     <html lang={HTML_LANG[lang]} className={font.variable} style={style}>
       <body className="min-h-screen font-sans">
-        {site.isDemo && <div className="bg-amber-100 py-1 text-center text-xs font-medium text-amber-900">{S.demo}</div>}
+        {site.isDemo && <div className="bg-amber-100 py-1 text-center text-xs font-medium text-amber-900">{fmt(S.demo, { org: site.name })}</div>}
         <SiteHeader ctx={ctx} />
         <main id="contenido">{children}</main>
         <SiteFooter ctx={ctx} />

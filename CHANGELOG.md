@@ -24,6 +24,14 @@
 > Desde el fork para Uruguay (`smogliazza/inmo-uy`) las entradas nuevas se escriben en español.
 
 #### Agregado (fork Uruguay)
+- **Migrador desde inmobiliariaya** (`tools/migrator`, guía en `guides/migrador.md`): trae las propiedades
+  públicas de un sitio de inmobiliariaya con fotos, precios por operación, ubicación y los datos de la
+  inmobiliaria. Modo **demostración** (inmobiliaria de prueba que vence a los 30 días, no se indexa y avisa que
+  usa datos públicos) y modo **migración** (a una inmobiliaria existente, con autorización registrada). Se puede
+  correr de nuevo sin duplicar; lo que desaparece del origen queda «Retirada». Prueba sin escribir nada
+  (`--dry-run`) con informe de totales y planilla de advertencias.
+- Las inmobiliarias de demostración vencidas se borran solas con todos sus datos y fotos (es lo único que la
+  plataforma borra).
 - **Sitio web de cada inmobiliaria en su dominio** (`{slug}.PLATFORM_DOMAIN` o el dominio propio; sin
   `PLATFORM_DOMAIN`, en `/sites/{slug}`): portada con buscador y destacadas, `/propiedades` con filtros
   instantáneos (operación, tipo, zona, precio en la moneda elegida, dormitorios, baños, superficie, comodidades y
@@ -494,6 +502,7 @@
 | Servidor (`.env`) | `ACME_EMAIL` / `GHCR_OWNER` / `TAG` | Fork Uruguay: email para Let's Encrypt, dueño de las imágenes en GHCR y versión a correr (la pone `deploy.sh`) |
 | Backup | `BACKUP_R2_BUCKET` / `BACKUP_ENCRYPTION_KEY` / `BACKUP_TIME` / `KEEP_DAILY` / `KEEP_WEEKLY` / `BACKUP_HEALTHCHECK_URL` | Fork Uruguay: destino, clave de cifrado (guardar una copia fuera del servidor), horario, retención y aviso de backup (`deploy/backup.env.example`) |
 | Backend | `NOMINATIM_URL` / `GEOCODER_USER_AGENT` | Fork Uruguay: búsqueda de direcciones para ubicar el pin (Nominatim, 1 consulta por segundo; el User-Agent debe identificar a la plataforma con un contacto) |
+| Migrador | `MIGRATOR_USER_AGENT` / `MIGRATOR_PUBLIC_API_URL` | Fork Uruguay: identificación con contacto para consultar el sitio de origen (obligatoria) y dirección pública de la API para las URLs de las fotos importadas (`guides/migrador.md`); además usa `DATABASE_URL`, `R2_*` y `GEOCODER_USER_AGENT` de la API |
 | Frontend (servidor) | `PLATFORM_DOMAIN` / `API_INTERNAL_URL` | Fork Uruguay: con `PLATFORM_DOMAIN` el servidor web muestra el sitio de cada inmobiliaria según el dominio (sin él, en `/sites/{slug}`); `API_INTERNAL_URL` es la API para las consultas del servidor web (en Docker, `http://api:4000`; por defecto `NEXT_PUBLIC_API_URL`) |
 | Frontend | `NEXT_PUBLIC_MAP_STYLE_URL` | Fork Uruguay: estilo del mapa (por defecto OpenFreeMap «liberty», sin clave) |
 | Backend | `PLATFORM_NAME` | Fork Uruguay: nombre de la plataforma en los emails (por defecto «Plataforma inmobiliaria») |

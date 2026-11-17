@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { prisma } from '../server';
+import { prisma } from './db';
 
 export interface StoredFileMeta {
     id: string;

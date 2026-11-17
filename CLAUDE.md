@@ -104,6 +104,9 @@ el alcance de cada fase. Si algo de este archivo la contradice, avisá en el PR.
   importar `useI18n`/`useExtra` en `components/site/` (el diccionario del panel no entra en el JS del sitio). El
   filtrado vive en `lib/site/filter.ts` (servidor y navegador). Config. de página (`revalidate`) siempre con
   literales. Mapas: `loadMaplibre()` de `lib/maplibre.ts` (el worker se copia a `public/maplibre/` al compilar).
+- **Migrador** (fase F6): `tools/migrator/` (paquete propio con `cheerio` y `tsx`; reutiliza `backend/src/lib/*`).
+  Los parsers se prueban contra `fixtures/` (`npm test`), sin red. `backend/src/lib/*` no debe importar
+  `../server` (usar `./db`): si no, el migrador levanta la API. Guía: `guides/migrador.md`.
 - Priorizar lo que resuelve problemas concretos de inmobiliarias y agentes, sin agregar peso innecesario.
 - El repo es **público** y su historial no se puede borrar de verdad: nunca commitear secretos, cadenas de
   conexión ni contraseñas, ni documentos (Word u otros binarios) que los contengan. Los pendientes que

@@ -1,4 +1,4 @@
-import { prisma } from '../server';
+import { prisma } from './db';
 
 // Seat limits per organization subscription level (see USER_GUIDE §16.1)
 // null = unlimited

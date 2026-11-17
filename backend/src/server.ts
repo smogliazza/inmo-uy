@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { createPrismaClient } from './lib/prisma';
+import { prisma } from './lib/db';
+import { startDemoCleanupLoop } from './lib/demoCleanup';
 
 dotenv.config();
 
@@ -24,7 +25,6 @@ const app = express();
 // Behind Render/Vercel the client IP arrives in X-Forwarded-For. Without this,
 // every user shares the proxy's IP and one rate-limit bucket.
 app.set('trust proxy', process.env.TRUST_PROXY ? Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY : (process.env.NODE_ENV === 'production' ? 1 : false));
-const prisma = createPrismaClient();
 const PORT = process.env.PORT || 4000;
 
 import clientRoutes from './routes/clients';
@@ -178,6 +178,7 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
 // Start Server
 let server: ReturnType<typeof app.listen> | undefined;
 let reminderTimer: ReturnType<typeof startReminderLoop> | null = null;
+let demoTimer: ReturnType<typeof startDemoCleanupLoop> | null = null;
 
 async function start() {
     // Production applies database migrations (and the one-time baseline) before
@@ -190,6 +191,7 @@ async function start() {
         console.log(`Server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
     });
     reminderTimer = process.env.DISABLE_JOBS === 'true' ? null : startReminderLoop();
+    if (process.env.DISABLE_JOBS !== 'true') demoTimer = startDemoCleanupLoop();
 }
 start().catch(err => {
     console.error('FATAL: startup failed:', err);
@@ -199,6 +201,7 @@ start().catch(err => {
 const shutdown = async (signal: string) => {
     console.log(`${signal} received — shutting down gracefully`);
     if (reminderTimer) clearInterval(reminderTimer);
+    if (demoTimer) clearInterval(demoTimer);
     if (!server) { await prisma.$disconnect(); process.exit(0); }
     server.close(async () => {
         await prisma.$disconnect();

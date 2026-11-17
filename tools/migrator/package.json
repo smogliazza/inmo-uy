@@ -1,0 +1,22 @@
+{
+  "name": "inmo-uy-migrator",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Imports a brokerage's public listings from inmobiliariaya (spec section 11)",
+  "scripts": {
+    "migrator": "tsx src/cli.ts",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}

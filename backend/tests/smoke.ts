@@ -1559,6 +1559,43 @@ async function main() {
         assert.equal((await setModules(owner, { publicSite: null })).status, 200);
     });
 
+    await step('expired demo brokerages are deleted with all their data; real brokerages never', async () => {
+        const { deleteDemoOrganization, purgeExpiredDemos } = await import('../src/lib/demoCleanup');
+        const real = await register('notdemo');
+        const realOrgId = (await call('GET', '/api/settings/organization', real)).body.id;
+        // A real brokerage is never deleted, not even with an expiry date in the past
+        await db().organization.update({ where: { id: realOrgId }, data: { demoExpiresAt: new Date(Date.now() - 1000) } });
+        await assert.rejects(() => deleteDemoOrganization(realOrgId), /not a demo/);
+
+        // A demo with listings, prices, photos (stored file), an inquiry, a note, an event and an audit entry
+        const mk = async (expires: Date) => {
+            const org = await db().organization.create({ data: { name: `Demo ${run}`, slug: `demo-${run}-${expires.getTime() % 100000}`, isDemo: true, demoExpiresAt: expires } });
+            const user = await db().user.create({ data: { email: `demo-${org.id}@demo.invalid`, name: 'Demo', orgId: org.id, role: 'FIRMADMIN' } });
+            const prop = await db().property.create({ data: { orgId: org.id, agentId: user.id, address: 'Uruguay 1', city: 'Salto', propertyType: 'CASA', externalSource: 'inmobiliariaya', externalId: '1' } });
+            await db().propertyPrice.create({ data: { orgId: org.id, propertyId: prop.id, operation: 'SALE', amount: 100000, currency: 'USD' } });
+            const file = await db().uploadedFile.create({ data: { orgId: org.id, visibility: 'PUBLIC', filename: 'a.jpg', mimeType: 'image/jpeg', sizeBytes: 3, data: new Uint8Array([1, 2, 3]) } });
+            await db().mediaAsset.create({ data: { orgId: org.id, propertyId: prop.id, type: 'image', url: `x/${file.id}`, storageKey: file.id, sourceUrl: 'https://example.test/a.jpg' } });
+            const client = await db().client.create({ data: { orgId: org.id, agentId: user.id, firstName: 'Ana', lastName: 'P', source: 'Sitio web' } });
+            await db().note.create({ data: { orgId: org.id, authorId: user.id, clientId: client.id, propertyId: prop.id, type: 'NOTE', content: 'hola' } });
+            await db().siteEvent.create({ data: { orgId: org.id, propertyId: prop.id, type: 'whatsapp_click' } });
+            await db().auditLog.create({ data: { orgId: org.id, userId: user.id, action: 'DEMO_IMPORTED', entity: 'Organization' } });
+            return org.id;
+        };
+        const expired = await mk(new Date(Date.now() - 60_000));
+        const current = await mk(new Date(Date.now() + 30 * 24 * 3600 * 1000));
+        const deleted = await purgeExpiredDemos();
+        assert.ok(deleted.includes(expired), 'expired demo deleted');
+        assert.ok(!deleted.includes(current) && !deleted.includes(realOrgId));
+        assert.equal(await db().organization.count({ where: { id: expired } }), 0);
+        for (const m of ['user', 'property', 'propertyPrice', 'mediaAsset', 'uploadedFile', 'client', 'note', 'siteEvent', 'auditLog'] as const) {
+            assert.equal(await (db()[m] as any).count({ where: { orgId: expired } }), 0, `${m} deleted`);
+        }
+        assert.equal(await db().property.count({ where: { orgId: current } }), 1, 'a demo that has not expired stays');
+        assert.equal(await db().organization.count({ where: { id: realOrgId } }), 1, 'the real brokerage stays');
+        await deleteDemoOrganization(current); // clean up
+        await db().organization.update({ where: { id: realOrgId }, data: { demoExpiresAt: null } });
+    });
+
     await step('module system: list, permissions, per-brokerage override, dependencies, isolation, audit', async () => {
         const owner = a;
         const agent = await joinOrg(owner, 'modagent', 'AGENT');

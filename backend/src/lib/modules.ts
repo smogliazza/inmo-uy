@@ -18,9 +18,9 @@
  */
 import type { NextFunction, Response } from 'express';
 import type { AuthRequest } from '../middleware/authMiddleware';
-// Loaded lazily so the pure resolution logic can be unit-tested without starting the server.
+// Loaded lazily so the pure resolution logic can be unit-tested without opening the database.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const db = () => (require('../server') as typeof import('../server')).prisma;
+const db = () => (require('./db') as typeof import('./db')).prisma;
 
 export interface ModuleDef {
     default: boolean;

@@ -1,5 +1,5 @@
 import { Transaction } from '@prisma/client';
-import { prisma } from '../server';
+import { prisma } from './db';
 import { orgLocale } from './messages';
 import { createNotification } from '../routes/notifications';
 
